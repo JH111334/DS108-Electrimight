@@ -1,24 +1,22 @@
 """
-VN30 Data Preprocessing Package
+DS108-Electritight Source Package
 
-Package chứa các module để xử lý dữ liệu VN30
+Package chứa các module cho dự án Steel Industry Energy Consumption.
 """
 
 __version__ = "1.0.0"
-__author__ = "VN30 Team"
+__author__ = "DS108 Team"
 
-from . import data_collection
-from . import data_quality
-from . import data_cleaning
-from . import feature_engineering
+from . import data_loader
+from . import wavelet_features
+from . import gan_augmentation
 from . import utils
 from . import pipeline
 
 __all__ = [
-    'data_collection',
-    'data_quality',
-    'data_cleaning',
-    'feature_engineering',
+    'data_loader',
+    'wavelet_features',
+    'gan_augmentation',
     'utils',
-    'pipeline'
+    'pipeline',
 ]

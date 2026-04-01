@@ -1,329 +1,203 @@
 """
-VN30 Data Preprocessing Pipeline
+DS108-Electritight Pipeline
 
-Module này chứa pipeline chính để xử lý dữ liệu VN30 từ đầu đến cuối.
+Pipeline đầu-cuối tích hợp toàn bộ bước xử lý dữ liệu Steel Industry:
+1. Tải & kiểm tra dữ liệu thô (data/raw/ — chỉ đọc)
+2. Làm sạch dữ liệu
+3. Trích xuất đặc trưng Wavelet
+4. Tăng cường dữ liệu GAN
+5. Lưu kết quả vào data/processed/
 """
 
-import os
 import logging
 from pathlib import Path
-from typing import Dict, Tuple, Optional
+from typing import Optional
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
-# Import các module từ project
-from src.data_collection import collect_all_vn30
-from src.data_quality import assess_data_quality, generate_quality_report
-from src.data_cleaning import (
-    handle_missing_values_advanced,
-    detect_outliers_isolation_forest,
-    validate_ohlc_logic
-)
-from src.feature_engineering import (
-    create_technical_indicators,
-    create_lag_features,
-    create_datetime_features,
-    create_macro_features
-)
+from src.data_loader import load_steel_data, clean_data, inspect_data
+from src.wavelet_features import apply_wavelet_features_to_df, rolling_wavelet_features
 from src.utils import setup_logging, save_data, load_data
 
 
-class VN30Pipeline:
+PROCESSED_DIR = Path("data/processed")
+
+
+class ElectritightPipeline:
     """
-    Pipeline chính để xử lý dữ liệu VN30
-    
+    Pipeline chính cho dự án DS108-Electritight.
+
     Workflow:
-    1. Data Collection
-    2. Data Quality Assessment
-    3. Data Cleaning
-    4. Feature Engineering
-    5. Data Transformation
-    6. Save Results
+    1. Data Loading & Inspection
+    2. Data Cleaning
+    3. Wavelet Feature Extraction
+    4. GAN Augmentation (tuỳ chọn)
+    5. Save Results
     """
-    
-    def __init__(self, 
-                 start_date: str = "2015-01-01",
-                 end_date: str = "2025-12-31",
-                 output_dir: str = "data",
-                 log_level: str = "INFO"):
+
+    def __init__(
+        self,
+        raw_path: str = "data/raw/Steel_industry_data.csv",
+        output_dir: str = "data/processed",
+        log_level: str = "INFO",
+        use_gan: bool = False,
+        gan_epochs: int = 2000,
+        n_synthetic: int = 500,
+    ):
         """
-        Khởi tạo pipeline
-        
+        Khởi tạo pipeline.
+
         Args:
-            start_date: Ngày bắt đầu (YYYY-MM-DD)
-            end_date: Ngày kết thúc (YYYY-MM-DD)
-            output_dir: Thư mục lưu output
-            log_level: Level của logging (DEBUG, INFO, WARNING, ERROR)
+            raw_path: Đường dẫn tệp dữ liệu thô (chỉ đọc).
+            output_dir: Thư mục lưu kết quả xử lý.
+            log_level: Mức độ logging.
+            use_gan: Có sử dụng GAN để tăng cường dữ liệu không.
+            gan_epochs: Số epoch huấn luyện GAN.
+            n_synthetic: Số mẫu tổng hợp GAN cần sinh.
         """
-        self.start_date = start_date
-        self.end_date = end_date
+        self.raw_path = Path(raw_path)
         self.output_dir = Path(output_dir)
-        
-        # Setup logging
+        self.use_gan = use_gan
+        self.gan_epochs = gan_epochs
+        self.n_synthetic = n_synthetic
+
         self.logger = setup_logging(log_level)
-        self.logger.info("Initialized VN30 Pipeline")
-        
-        # Tạo thư mục nếu chưa tồn tại
-        (self.output_dir / "raw").mkdir(parents=True, exist_ok=True)
-        (self.output_dir / "interim").mkdir(parents=True, exist_ok=True)
-        (self.output_dir / "processed").mkdir(parents=True, exist_ok=True)
-        
-        # Data containers
-        self.raw_data = None
-        self.clean_data = None
-        self.featured_data = None
-        self.final_data = None
-        
-    def run_data_collection(self) -> pd.DataFrame:
-        """
-        Bước 1: Thu thập dữ liệu
-        
-        Returns:
-            DataFrame chứa dữ liệu thô
-        """
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        self.raw_df: Optional[pd.DataFrame] = None
+        self.clean_df: Optional[pd.DataFrame] = None
+        self.featured_df: Optional[pd.DataFrame] = None
+        self.final_df: Optional[pd.DataFrame] = None
+
+    def run_loading(self) -> pd.DataFrame:
+        """Bước 1: Tải và kiểm tra dữ liệu thô."""
         self.logger.info("=" * 60)
-        self.logger.info("STEP 1: DATA COLLECTION")
+        self.logger.info("STEP 1: DATA LOADING & INSPECTION")
         self.logger.info("=" * 60)
-        
-        try:
-            # Thu thập dữ liệu VN30
-            self.logger.info(f"Collecting VN30 data from {self.start_date} to {self.end_date}")
-            self.raw_data = collect_all_vn30(
-                start_date=self.start_date,
-                end_date=self.end_date
-            )
-            
-            # Lưu raw data
-            raw_path = self.output_dir / "raw" / "vn30_raw.csv"
-            save_data(self.raw_data, raw_path)
-            self.logger.info(f"Raw data saved to {raw_path}")
-            
-            # Log statistics
-            self.logger.info(f"Total records: {len(self.raw_data):,}")
-            self.logger.info(f"Date range: {self.raw_data['time'].min()} to {self.raw_data['time'].max()}")
-            self.logger.info(f"Tickers: {self.raw_data['ticker'].nunique()}")
-            
-            return self.raw_data
-            
-        except Exception as e:
-            self.logger.error(f"Error in data collection: {str(e)}")
-            raise
-    
-    def run_quality_assessment(self) -> Dict:
-        """
-        Bước 2: Đánh giá chất lượng dữ liệu
-        
-        Returns:
-            Dictionary chứa kết quả đánh giá
-        """
+
+        self.raw_df = load_steel_data(self.raw_path)
+        report = inspect_data(self.raw_df)
+        self.logger.info(f"Shape: {report['shape']}")
+        self.logger.info(f"Duplicates: {report['duplicates']}")
+        self.logger.info(f"Missing values: {report['missing_count']}")
+        return self.raw_df
+
+    def run_cleaning(self) -> pd.DataFrame:
+        """Bước 2: Làm sạch dữ liệu."""
         self.logger.info("=" * 60)
-        self.logger.info("STEP 2: DATA QUALITY ASSESSMENT")
+        self.logger.info("STEP 2: DATA CLEANING")
         self.logger.info("=" * 60)
-        
-        try:
-            # Assess quality
-            quality_metrics = assess_data_quality(self.raw_data)
-            
-            # Generate report
-            report_path = "reports/data_quality_reports/quality_report.html"
-            generate_quality_report(self.raw_data, output_path=report_path)
-            
-            self.logger.info("Quality Assessment Results:")
-            for metric, value in quality_metrics.items():
-                self.logger.info(f"  {metric}: {value:.2f}%")
-            
-            return quality_metrics
-            
-        except Exception as e:
-            self.logger.error(f"Error in quality assessment: {str(e)}")
-            raise
-    
-    def run_data_cleaning(self) -> pd.DataFrame:
-        """
-        Bước 3: Làm sạch dữ liệu
-        
-        Returns:
-            DataFrame đã được làm sạch
-        """
+
+        self.clean_df, report = clean_data(self.raw_df)
+        self.logger.info(f"Cleaning report: {report}")
+
+        save_data(self.clean_df, self.output_dir / "steel_clean.csv")
+        self.logger.info(f"Clean data saved to {self.output_dir / 'steel_clean.csv'}")
+        return self.clean_df
+
+    def run_wavelet_features(self) -> pd.DataFrame:
+        """Bước 3: Trích xuất đặc trưng Wavelet."""
         self.logger.info("=" * 60)
-        self.logger.info("STEP 3: DATA CLEANING")
+        self.logger.info("STEP 3: WAVELET FEATURE EXTRACTION")
         self.logger.info("=" * 60)
-        
-        try:
-            # Validate OHLC logic
-            self.logger.info("Validating OHLC logic...")
-            self.raw_data = validate_ohlc_logic(self.raw_data)
-            
-            # Handle missing values
-            self.logger.info("Handling missing values with MICE...")
-            self.clean_data, imputation_report = handle_missing_values_advanced(
-                self.raw_data
-            )
-            
-            # Detect outliers
-            self.logger.info("Detecting outliers with Isolation Forest...")
-            self.clean_data = detect_outliers_isolation_forest(self.clean_data)
-            
-            # Lưu clean data
-            clean_path = self.output_dir / "interim" / "vn30_clean.csv"
-            save_data(self.clean_data, clean_path)
-            self.logger.info(f"Clean data saved to {clean_path}")
-            
-            return self.clean_data
-            
-        except Exception as e:
-            self.logger.error(f"Error in data cleaning: {str(e)}")
-            raise
-    
-    def run_feature_engineering(self) -> pd.DataFrame:
-        """
-        Bước 4: Feature Engineering
-        
-        Returns:
-            DataFrame với features mới
-        """
+
+        numeric_cols = self.clean_df.select_dtypes(include=[np.number]).columns.tolist()
+
+        # Rolling wavelet features cho cột mục tiêu chính
+        target_col = "Usage_kWh" if "Usage_kWh" in self.clean_df.columns else numeric_cols[0]
+        wavelet_df = rolling_wavelet_features(
+            self.clean_df, target_col=target_col, window=64
+        )
+
+        self.featured_df = pd.concat([self.clean_df, wavelet_df], axis=1)
+        self.logger.info(f"Total features after Wavelet: {len(self.featured_df.columns)}")
+
+        save_data(self.featured_df, self.output_dir / "steel_wavelet_features.csv")
+        self.logger.info(
+            f"Featured data saved to {self.output_dir / 'steel_wavelet_features.csv'}"
+        )
+        return self.featured_df
+
+    def run_gan_augmentation(self) -> pd.DataFrame:
+        """Bước 4 (tuỳ chọn): Tăng cường dữ liệu bằng GAN."""
         self.logger.info("=" * 60)
-        self.logger.info("STEP 4: FEATURE ENGINEERING")
+        self.logger.info("STEP 4: GAN AUGMENTATION")
         self.logger.info("=" * 60)
-        
-        try:
-            # Technical indicators
-            self.logger.info("Creating technical indicators...")
-            self.featured_data = create_technical_indicators(self.clean_data)
-            
-            # Lag features
-            self.logger.info("Creating lag features...")
-            self.featured_data = create_lag_features(self.featured_data)
-            
-            # Datetime features
-            self.logger.info("Creating datetime features...")
-            self.featured_data = create_datetime_features(self.featured_data)
-            
-            # Macro features
-            self.logger.info("Creating macro features...")
-            self.featured_data = create_macro_features(self.featured_data)
-            
-            # Lưu featured data
-            featured_path = self.output_dir / "interim" / "vn30_features.csv"
-            save_data(self.featured_data, featured_path)
-            self.logger.info(f"Featured data saved to {featured_path}")
-            
-            self.logger.info(f"Total features: {len(self.featured_data.columns)}")
-            
-            return self.featured_data
-            
-        except Exception as e:
-            self.logger.error(f"Error in feature engineering: {str(e)}")
-            raise
-    
-    def run_transformation(self) -> pd.DataFrame:
-        """
-        Bước 5: Transformation và Scaling
-        
-        Returns:
-            DataFrame đã được transform
-        """
-        self.logger.info("=" * 60)
-        self.logger.info("STEP 5: DATA TRANSFORMATION")
-        self.logger.info("=" * 60)
-        
-        try:
-            from sklearn.preprocessing import StandardScaler
-            
-            # Identify numeric columns to scale
-            numeric_cols = self.featured_data.select_dtypes(
-                include=[np.number]
-            ).columns.tolist()
-            
-            # Exclude certain columns
-            exclude_cols = ['time', 'ticker', 'is_outlier', 'is_imputed', 'ohlc_valid']
-            numeric_cols = [col for col in numeric_cols if col not in exclude_cols]
-            
-            # Scale per ticker
-            self.final_data = self.featured_data.copy()
-            scaler = StandardScaler()
-            
-            for ticker in self.final_data['ticker'].unique():
-                mask = self.final_data['ticker'] == ticker
-                self.final_data.loc[mask, numeric_cols] = scaler.fit_transform(
-                    self.final_data.loc[mask, numeric_cols]
-                )
-            
-            # Lưu final data
-            final_path = self.output_dir / "processed" / "vn30_final.csv"
-            save_data(self.final_data, final_path)
-            self.logger.info(f"Final data saved to {final_path}")
-            
-            return self.final_data
-            
-        except Exception as e:
-            self.logger.error(f"Error in transformation: {str(e)}")
-            raise
-    
+
+        from src.gan_augmentation import train_gan, generate_synthetic_samples
+
+        numeric_cols = self.featured_df.select_dtypes(include=[np.number]).columns.tolist()
+        data_array = self.featured_df[numeric_cols].dropna().values
+
+        # Chuẩn hóa về [-1, 1] cho GAN
+        scaler = MinMaxScaler(feature_range=(-1, 1))
+        data_scaled = scaler.fit_transform(data_array)
+
+        generator, _ = train_gan(
+            data_scaled,
+            latent_dim=100,
+            epochs=self.gan_epochs,
+            batch_size=64,
+        )
+
+        synthetic_scaled = generate_synthetic_samples(
+            generator, n_samples=self.n_synthetic, latent_dim=100
+        )
+        synthetic = scaler.inverse_transform(synthetic_scaled)
+        synthetic_df = pd.DataFrame(synthetic, columns=numeric_cols)
+
+        save_data(synthetic_df, self.output_dir / "steel_synthetic_gan.csv")
+        self.logger.info(
+            f"Synthetic data ({self.n_synthetic} samples) saved to "
+            f"{self.output_dir / 'steel_synthetic_gan.csv'}"
+        )
+
+        # Gộp dữ liệu thực và tổng hợp
+        self.final_df = pd.concat(
+            [self.featured_df[numeric_cols], synthetic_df], ignore_index=True
+        )
+        return self.final_df
+
     def run_pipeline(self) -> pd.DataFrame:
-        """
-        Chạy toàn bộ pipeline
-        
-        Returns:
-            DataFrame cuối cùng
-        """
+        """Chạy toàn bộ pipeline đầu-cuối."""
         self.logger.info("=" * 60)
-        self.logger.info("STARTING VN30 DATA PREPROCESSING PIPELINE")
+        self.logger.info("STARTING DS108-ELECTRITIGHT PIPELINE")
         self.logger.info("=" * 60)
-        
-        try:
-            # Step 1: Data Collection
-            self.run_data_collection()
-            
-            # Step 2: Quality Assessment
-            self.run_quality_assessment()
-            
-            # Step 3: Data Cleaning
-            self.run_data_cleaning()
-            
-            # Step 4: Feature Engineering
-            self.run_feature_engineering()
-            
-            # Step 5: Transformation
-            self.run_transformation()
-            
-            self.logger.info("=" * 60)
-            self.logger.info("PIPELINE COMPLETED SUCCESSFULLY")
-            self.logger.info("=" * 60)
-            
-            return self.final_data
-            
-        except Exception as e:
-            self.logger.error("=" * 60)
-            self.logger.error("PIPELINE FAILED")
-            self.logger.error("=" * 60)
-            self.logger.error(f"Error: {str(e)}")
-            raise
+
+        self.run_loading()
+        self.run_cleaning()
+        self.run_wavelet_features()
+
+        if self.use_gan:
+            self.run_gan_augmentation()
+        else:
+            self.final_df = self.featured_df
+
+        save_data(self.final_df, self.output_dir / "steel_final.csv")
+
+        self.logger.info("=" * 60)
+        self.logger.info("PIPELINE COMPLETED SUCCESSFULLY")
+        self.logger.info(f"Final dataset shape: {self.final_df.shape}")
+        self.logger.info("=" * 60)
+        return self.final_df
 
 
 def main():
-    """
-    Main function để chạy pipeline
-    """
-    # Khởi tạo pipeline
-    pipeline = VN30Pipeline(
-        start_date="2015-01-01",
-        end_date="2025-12-31",
-        output_dir="data",
-        log_level="INFO"
+    """Chạy pipeline với cấu hình mặc định."""
+    pipeline = ElectritightPipeline(
+        raw_path="data/raw/Steel_industry_data.csv",
+        output_dir="data/processed",
+        log_level="INFO",
+        use_gan=False,
     )
-    
-    # Chạy pipeline
     final_data = pipeline.run_pipeline()
-    
+
     print("\n" + "=" * 60)
     print("PIPELINE SUMMARY")
     print("=" * 60)
-    print(f"Total records: {len(final_data):,}")
-    print(f"Total features: {len(final_data.columns)}")
-    print(f"Tickers: {final_data['ticker'].nunique()}")
-    print(f"Date range: {final_data['time'].min()} to {final_data['time'].max()}")
+    print(f"Final dataset shape: {final_data.shape}")
     print("=" * 60)
 
 
