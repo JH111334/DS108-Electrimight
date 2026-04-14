@@ -11,11 +11,10 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from src.utils import RAW_CSV
 
-RAW_DATA_PATH = Path("data/raw/Steel_industry_data.csv")
 
-
-def load_steel_data(filepath: Path = RAW_DATA_PATH) -> pd.DataFrame:
+def load_steel_data(filepath: Path = RAW_CSV) -> pd.DataFrame:
     """
     Tải bộ dữ liệu thô từ data/raw/ (chỉ đọc).
 

@@ -1,12 +1,17 @@
 """
-DS108-Electritight Pipeline
+DS108-Electrimight Pipeline
 
-Pipeline đầu-cuối tích hợp toàn bộ bước xử lý dữ liệu Steel Industry:
-1. Tải & kiểm tra dữ liệu thô (data/raw/ — chỉ đọc)
-2. Làm sạch dữ liệu
-3. Trích xuất đặc trưng Wavelet
-4. Tăng cường dữ liệu GAN
-5. Lưu kết quả vào data/processed/
+Pipeline đầu-cuối tích hợp toàn bộ bước tiền xử lý dữ liệu Steel Industry,
+được cấu trúc theo khung 7 bước từ Outlines:
+
+  1. Tải & kiểm tra dữ liệu thô (data/raw/ — chỉ đọc)
+  2. Làm sạch dữ liệu (loại trùng lặp, nội suy, sắp xếp theo thời gian)
+  3. Time-Domain Features (lag, rolling stats, trig encoding)
+  4. Frequency-Domain Features (DWT Wavelet)
+  5. Physical-Domain Features (Apparent Power S, Phase Angle φ)
+  6. Anomaly Labeling (Idling, Leakage, Overload)
+  7. (Tùy chọn) GAN Augmentation
+  8. Lưu kết quả vào data/processed/
 """
 
 import logging
@@ -15,32 +20,33 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 
 from src.data_loader import load_steel_data, clean_data, inspect_data
-from src.wavelet_features import apply_wavelet_features_to_df, rolling_wavelet_features
-from src.utils import setup_logging, save_data, load_data
+from src.time_features import build_time_features
+from src.wavelet_features import rolling_wavelet_features
+from src.physical_features import build_physical_features
+from src.anomaly_labels import label_all_anomalies
+from src.utils import setup_logging, save_data, RAW_CSV, PROCESSED_DIR
 
 
-PROCESSED_DIR = Path("data/processed")
-
-
-class ElectritightPipeline:
+class ElectrimightPipeline:
     """
-    Pipeline chính cho dự án DS108-Electritight.
+    Pipeline chính cho dự án DS108-Electrimight.
 
-    Workflow:
+    Workflow (theo Outlines 7 bước):
     1. Data Loading & Inspection
     2. Data Cleaning
-    3. Wavelet Feature Extraction
-    4. GAN Augmentation (tuỳ chọn)
-    5. Save Results
+    3. Time-Domain Feature Engineering
+    4. Frequency-Domain Feature Extraction (Wavelet)
+    5. Physical-Domain Feature Extraction (S, φ)
+    6. Anomaly Labeling (Idling, Leakage, Overload)
+    7. GAN Augmentation (tùy chọn)
     """
 
     def __init__(
         self,
-        raw_path: str = "data/raw/Steel_industry_data.csv",
-        output_dir: str = "data/processed",
+        raw_path: Path = RAW_CSV,
+        output_dir: Path = PROCESSED_DIR,
         log_level: str = "INFO",
         use_gan: bool = False,
         gan_epochs: int = 2000,
@@ -68,8 +74,13 @@ class ElectritightPipeline:
 
         self.raw_df: Optional[pd.DataFrame] = None
         self.clean_df: Optional[pd.DataFrame] = None
-        self.featured_df: Optional[pd.DataFrame] = None
+        self.time_df: Optional[pd.DataFrame] = None
+        self.wavelet_df: Optional[pd.DataFrame] = None
+        self.physical_df: Optional[pd.DataFrame] = None
+        self.labeled_df: Optional[pd.DataFrame] = None
         self.final_df: Optional[pd.DataFrame] = None
+
+    # ── Step 1: Load & Inspect ──────────────────────────────────────
 
     def run_loading(self) -> pd.DataFrame:
         """Bước 1: Tải và kiểm tra dữ liệu thô."""
@@ -84,6 +95,8 @@ class ElectritightPipeline:
         self.logger.info(f"Missing values: {report['missing_count']}")
         return self.raw_df
 
+    # ── Step 2: Clean ───────────────────────────────────────────────
+
     def run_cleaning(self) -> pd.DataFrame:
         """Bước 2: Làm sạch dữ liệu."""
         self.logger.info("=" * 60)
@@ -94,44 +107,79 @@ class ElectritightPipeline:
         self.logger.info(f"Cleaning report: {report}")
 
         save_data(self.clean_df, self.output_dir / "steel_clean.csv")
-        self.logger.info(f"Clean data saved to {self.output_dir / 'steel_clean.csv'}")
+        self.logger.info(f"Clean data saved → {self.output_dir / 'steel_clean.csv'}")
         return self.clean_df
 
+    # ── Step 3: Time-Domain Features ────────────────────────────────
+
+    def run_time_features(self) -> pd.DataFrame:
+        """Bước 3: Trích xuất đặc trưng miền thời gian (lag, rolling, trig)."""
+        self.logger.info("=" * 60)
+        self.logger.info("STEP 3: TIME-DOMAIN FEATURE ENGINEERING")
+        self.logger.info("=" * 60)
+
+        self.time_df = build_time_features(self.clean_df, target_col="Usage_kWh")
+        self.logger.info(f"Columns after Time features: {len(self.time_df.columns)}")
+        return self.time_df
+
+    # ── Step 4: Frequency-Domain Features (Wavelet) ─────────────────
+
     def run_wavelet_features(self) -> pd.DataFrame:
-        """Bước 3: Trích xuất đặc trưng Wavelet."""
+        """Bước 4: Trích xuất đặc trưng Wavelet (DWT Daubechies)."""
         self.logger.info("=" * 60)
-        self.logger.info("STEP 3: WAVELET FEATURE EXTRACTION")
+        self.logger.info("STEP 4: FREQUENCY-DOMAIN FEATURE EXTRACTION (DWT)")
         self.logger.info("=" * 60)
 
-        numeric_cols = self.clean_df.select_dtypes(include=[np.number]).columns.tolist()
-
-        # Rolling wavelet features cho cột mục tiêu chính
-        target_col = "Usage_kWh" if "Usage_kWh" in self.clean_df.columns else numeric_cols[0]
-        wavelet_df = rolling_wavelet_features(
-            self.clean_df, target_col=target_col, window=64
+        target_col = "Usage_kWh"
+        wavelet_feats = rolling_wavelet_features(
+            self.time_df, target_col=target_col, window=64
         )
+        self.wavelet_df = pd.concat([self.time_df, wavelet_feats], axis=1)
+        self.logger.info(f"Columns after Wavelet: {len(self.wavelet_df.columns)}")
+        return self.wavelet_df
 
-        self.featured_df = pd.concat([self.clean_df, wavelet_df], axis=1)
-        self.logger.info(f"Total features after Wavelet: {len(self.featured_df.columns)}")
+    # ── Step 5: Physical-Domain Features ────────────────────────────
 
-        save_data(self.featured_df, self.output_dir / "steel_wavelet_features.csv")
-        self.logger.info(
-            f"Featured data saved to {self.output_dir / 'steel_wavelet_features.csv'}"
-        )
-        return self.featured_df
+    def run_physical_features(self) -> pd.DataFrame:
+        """Bước 5: Trích xuất đặc trưng vật lý (Apparent Power S, Phase Angle φ)."""
+        self.logger.info("=" * 60)
+        self.logger.info("STEP 5: PHYSICAL-DOMAIN FEATURE EXTRACTION")
+        self.logger.info("=" * 60)
+
+        self.physical_df = build_physical_features(self.wavelet_df)
+        self.logger.info(f"Columns after Physical: {len(self.physical_df.columns)}")
+        return self.physical_df
+
+    # ── Step 6: Anomaly Labeling ────────────────────────────────────
+
+    def run_anomaly_labeling(self) -> pd.DataFrame:
+        """Bước 6: Gán nhãn bất thường (Idling, Leakage, Overload)."""
+        self.logger.info("=" * 60)
+        self.logger.info("STEP 6: ANOMALY LABELING")
+        self.logger.info("=" * 60)
+
+        self.labeled_df = label_all_anomalies(self.physical_df)
+
+        n_idling = self.labeled_df["anomaly_idling"].sum()
+        n_leakage = self.labeled_df["anomaly_leakage"].sum()
+        n_overload = self.labeled_df["anomaly_overload"].sum()
+        self.logger.info(f"Idling: {n_idling} | Leakage: {n_leakage} | Overload: {n_overload}")
+        return self.labeled_df
+
+    # ── Step 7: GAN Augmentation (Optional) ─────────────────────────
 
     def run_gan_augmentation(self) -> pd.DataFrame:
-        """Bước 4 (tuỳ chọn): Tăng cường dữ liệu bằng GAN."""
+        """Bước 7 (tùy chọn): Tăng cường dữ liệu bằng GAN."""
         self.logger.info("=" * 60)
-        self.logger.info("STEP 4: GAN AUGMENTATION")
+        self.logger.info("STEP 7: GAN AUGMENTATION")
         self.logger.info("=" * 60)
 
         from src.gan_augmentation import train_gan, generate_synthetic_samples
+        from sklearn.preprocessing import MinMaxScaler
 
-        numeric_cols = self.featured_df.select_dtypes(include=[np.number]).columns.tolist()
-        data_array = self.featured_df[numeric_cols].dropna().values
+        numeric_cols = self.labeled_df.select_dtypes(include=[np.number]).columns.tolist()
+        data_array = self.labeled_df[numeric_cols].dropna().values
 
-        # Chuẩn hóa về [-1, 1] cho GAN
         scaler = MinMaxScaler(feature_range=(-1, 1))
         data_scaled = scaler.fit_transform(data_array)
 
@@ -150,30 +198,34 @@ class ElectritightPipeline:
 
         save_data(synthetic_df, self.output_dir / "steel_synthetic_gan.csv")
         self.logger.info(
-            f"Synthetic data ({self.n_synthetic} samples) saved to "
+            f"Synthetic data ({self.n_synthetic} samples) saved → "
             f"{self.output_dir / 'steel_synthetic_gan.csv'}"
         )
 
-        # Gộp dữ liệu thực và tổng hợp
         self.final_df = pd.concat(
-            [self.featured_df[numeric_cols], synthetic_df], ignore_index=True
+            [self.labeled_df[numeric_cols], synthetic_df], ignore_index=True
         )
         return self.final_df
+
+    # ── Full Pipeline ───────────────────────────────────────────────
 
     def run_pipeline(self) -> pd.DataFrame:
         """Chạy toàn bộ pipeline đầu-cuối."""
         self.logger.info("=" * 60)
-        self.logger.info("STARTING DS108-ELECTRITIGHT PIPELINE")
+        self.logger.info("STARTING DS108-ELECTRIMIGHT PIPELINE")
         self.logger.info("=" * 60)
 
         self.run_loading()
         self.run_cleaning()
+        self.run_time_features()
         self.run_wavelet_features()
+        self.run_physical_features()
+        self.run_anomaly_labeling()
 
         if self.use_gan:
             self.run_gan_augmentation()
         else:
-            self.final_df = self.featured_df
+            self.final_df = self.labeled_df
 
         save_data(self.final_df, self.output_dir / "steel_final.csv")
 
@@ -186,9 +238,7 @@ class ElectritightPipeline:
 
 def main():
     """Chạy pipeline với cấu hình mặc định."""
-    pipeline = ElectritightPipeline(
-        raw_path="data/raw/Steel_industry_data.csv",
-        output_dir="data/processed",
+    pipeline = ElectrimightPipeline(
         log_level="INFO",
         use_gan=False,
     )

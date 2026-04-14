@@ -1,8 +1,17 @@
 """
-Wavelet Features Module
+Wavelet Features Module (Frequency-Domain)
 
 Trích xuất đặc trưng tần số-thời gian bằng biến đổi Wavelet rời rạc (DWT)
-sử dụng thư viện PyWavelets.
+sử dụng thư viện PyWavelets (Outlines §IV.2).
+
+Ưu thế DWT so với FFT:
+  - FFT chỉ cho biết TẦN SỐ nào tồn tại, không xác định THỜI ĐIỂM.
+  - DWT sử dụng hàm sóng ngắn (wavelets) co giãn + tịnh tiến,
+    định vị tín hiệu cả trong tần số LẪN thời gian.
+  - Sự cố hỏng hóc đột ngột → bị tóm gọn trong hệ số chi tiết (cD),
+    biến DWT thành công cụ tối thượng cho ngoại lai tần số cao.
+
+Tham chiếu: "Hướng dẫn đồ án tiền xử lý dữ liệu" — mục 2 (Frequency Domain).
 """
 
 from typing import List, Optional
@@ -24,6 +33,9 @@ def extract_wavelet_features(
     Với mỗi mức phân rã, hàm tính: mean, std, energy, max_abs của
     các hệ số chi tiết (cD) và xấp xỉ cuối cùng (cA).
 
+    - cA (Approximation): Thông tin xu hướng vĩ mô.
+    - cD (Detail): Dao động vi mô — nơi bất thường tần số cao ẩn náu.
+
     Args:
         series: Mảng 1-D dữ liệu chuỗi thời gian.
         wavelet: Tên wavelet (mặc định "db4" — Daubechies bậc 4).
@@ -44,39 +56,6 @@ def extract_wavelet_features(
         features[f"{label}_max_abs"] = float(np.max(np.abs(coeff)))
 
     return pd.Series(features)
-
-
-def apply_wavelet_features_to_df(
-    df: pd.DataFrame,
-    target_cols: Optional[List[str]] = None,
-    wavelet: str = "db4",
-    level: int = 3,
-) -> pd.DataFrame:
-    """
-    Áp dụng extract_wavelet_features lên từng cột số trong DataFrame
-    bằng cách tính đặc trưng trên toàn bộ chuỗi của mỗi cột.
-
-    Args:
-        df: DataFrame đầu vào (đã được sắp xếp theo thời gian).
-        target_cols: Danh sách cột cần xử lý; mặc định là tất cả cột số.
-        wavelet: Tên wavelet.
-        level: Số mức phân rã.
-
-    Returns:
-        pd.Series (một hàng đặc trưng tổng hợp cho toàn bộ tập dữ liệu),
-        hoặc DataFrame nếu cần đặc trưng theo từng hàng (xem rolling variant).
-    """
-    if target_cols is None:
-        target_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-
-    all_features = {}
-    for col in target_cols:
-        col_features = extract_wavelet_features(
-            df[col].values, wavelet=wavelet, level=level, prefix=col
-        )
-        all_features.update(col_features.to_dict())
-
-    return pd.Series(all_features)
 
 
 def rolling_wavelet_features(

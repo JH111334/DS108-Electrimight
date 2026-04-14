@@ -1,8 +1,8 @@
 """
 Utilities Module
 
-Các tiện ích dùng chung cho dự án DS108-Electritight:
-logging, lưu/tải dữ liệu.
+Các tiện ích dùng chung cho dự án DS108-Electrimight:
+logging, lưu/tải dữ liệu, và hằng số đường dẫn trung tâm.
 """
 
 import logging
@@ -10,6 +10,18 @@ from pathlib import Path
 
 import pandas as pd
 
+
+# ── Centralized Path Constants ──────────────────────────────────────
+# Tất cả module trong src/ phải sử dụng các hằng số này
+# thay vì hardcode đường dẫn riêng.
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
+RAW_CSV = RAW_DIR / "Steel_industry_data.csv"
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+
+
+# ── Logging ─────────────────────────────────────────────────────────
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
     """
@@ -28,6 +40,8 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     )
     return logging.getLogger(__name__)
 
+
+# ── Data I/O ────────────────────────────────────────────────────────
 
 def save_data(df: pd.DataFrame, filepath: Path) -> None:
     """
