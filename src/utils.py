@@ -18,6 +18,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 RAW_CSV = RAW_DIR / "Steel_industry_data.csv"
+WEATHER_CSV = RAW_DIR / "weather_gwangyang_2018.csv"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 

@@ -5,7 +5,8 @@ Pipeline đầu-cuối tích hợp toàn bộ bước tiền xử lý dữ liệ
 được cấu trúc theo khung 7 bước từ Outlines:
 
   1. Tải & kiểm tra dữ liệu thô (data/raw/ — chỉ đọc)
-  2. Làm sạch dữ liệu (loại trùng lặp, nội suy, sắp xếp theo thời gian)
+  2. Làm sạch dữ liệu (loại trùng lặp, nội suy, sắp xếp theo thờ gian)
+  2.5. Tích hợp dữ liệu thờ tiết (resample, engineer, merge)
   3. Time-Domain Features (lag, rolling stats, trig encoding)
   4. Frequency-Domain Features (DWT Wavelet)
   5. Physical-Domain Features (Apparent Power S, Phase Angle φ)
@@ -26,16 +27,18 @@ from src.time_features import build_time_features
 from src.wavelet_features import rolling_wavelet_features
 from src.physical_features import build_physical_features
 from src.anomaly_labels import label_all_anomalies
-from src.utils import setup_logging, save_data, RAW_CSV, PROCESSED_DIR
+from src.weather_loader import integrate_weather
+from src.utils import setup_logging, save_data, RAW_CSV, WEATHER_CSV, PROCESSED_DIR
 
 
 class ElectrimightPipeline:
     """
     Pipeline chính cho dự án DS108-Electrimight.
 
-    Workflow (theo Outlines 7 bước):
+    Workflow (theo Outlines 7 bước + Weather Integration):
     1. Data Loading & Inspection
     2. Data Cleaning
+    2.5. Weather Data Integration (load, resample, engineer, merge)
     3. Time-Domain Feature Engineering
     4. Frequency-Domain Feature Extraction (Wavelet)
     5. Physical-Domain Feature Extraction (S, φ)
@@ -74,6 +77,7 @@ class ElectrimightPipeline:
 
         self.raw_df: Optional[pd.DataFrame] = None
         self.clean_df: Optional[pd.DataFrame] = None
+        self.weather_df: Optional[pd.DataFrame] = None
         self.time_df: Optional[pd.DataFrame] = None
         self.wavelet_df: Optional[pd.DataFrame] = None
         self.physical_df: Optional[pd.DataFrame] = None
@@ -110,10 +114,28 @@ class ElectrimightPipeline:
         self.logger.info(f"Clean data saved → {self.output_dir / 'steel_clean.csv'}")
         return self.clean_df
 
+    # ── Step 2.5: Weather Integration ───────────────────────────────
+
+    def run_weather_integration(self) -> pd.DataFrame:
+        """Bước 2.5: Tích hợp dữ liệu thờ tiết (load, resample, engineer, merge)."""
+        self.logger.info("=" * 60)
+        self.logger.info("STEP 2.5: WEATHER DATA INTEGRATION")
+        self.logger.info("=" * 60)
+
+        self.weather_df, report = integrate_weather(self.clean_df, WEATHER_CSV)
+        self.logger.info(f"Weather raw shape: {report['weather_raw_shape']}")
+        self.logger.info(f"Weather resampled shape: {report['weather_resampled_shape']}")
+        self.logger.info(f"Weather features added: {report['weather_features_added']}")
+        self.logger.info(f"Merged shape: {report['merged_shape']}")
+        self.logger.info(f"Nulls after merge: {report['nulls_after_merge']}")
+
+        self.clean_df = self.weather_df
+        return self.clean_df
+
     # ── Step 3: Time-Domain Features ────────────────────────────────
 
     def run_time_features(self) -> pd.DataFrame:
-        """Bước 3: Trích xuất đặc trưng miền thời gian (lag, rolling, trig)."""
+        """Bước 3: Trích xuất đặc trưng miền thờ gian (lag, rolling, trig)."""
         self.logger.info("=" * 60)
         self.logger.info("STEP 3: TIME-DOMAIN FEATURE ENGINEERING")
         self.logger.info("=" * 60)
@@ -217,6 +239,7 @@ class ElectrimightPipeline:
 
         self.run_loading()
         self.run_cleaning()
+        self.run_weather_integration()
         self.run_time_features()
         self.run_wavelet_features()
         self.run_physical_features()
