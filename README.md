@@ -1,15 +1,18 @@
 # DS108-Electritight
 
-Dự án tiền xử lý và mô hình hóa dữ liệu tiêu thụ điện năng ngành thép (Steel Industry Energy Consumption) sử dụng biến đổi Wavelet và tăng cường dữ liệu GAN.
+Dự án tiền xử lý và mô hình hóa dữ liệu tiêu thụ điện năng ngành thép (Steel Industry Energy Consumption) sử dụng biến đổi Wavelet và tăng cường dữ liệu GAN, đồng thở tích hợp dữ liệu thở tiết ngoại sinh (exogenous variables) và phát hiện bất thường dựa trên chuẩn ngành.
 
 ---
 
 ## Giới Thiệu
 
-**DS108-Electritight** là dự án học máy tập trung vào bộ dữ liệu `Steel_industry_data.csv` — ghi lại mức tiêu thụ điện năng theo thời gian thực của một nhà máy thép Hàn Quốc. Mục tiêu của dự án bao gồm:
+**DS108-Electritight** là dự án học máy tập trung vào bộ dữ liệu `Steel_industry_data.csv` — ghi lại mức tiêu thụ điện năng theo thở gian thực của một nhà máy thép Hàn Quốc. Mục tiêu của dự án bao gồm:
 
 - **EDA & Baseline**: Phân tích khám phá dữ liệu và xây dựng mô hình nền.
-- **Feature Engineering**: Trích xuất đặc trưng toán học nâng cao bằng biến đổi Wavelet (PyWavelets).
+- **Data Quality Audit**: Kiểm tra sâu (deep audit) để phát hiện các vấn đề ẩn trong dữ liệu thô.
+- **Feature Engineering**: Trích xuất đặc trưng toán học nâng cao bằng biến đổi Wavelet (PyWavelets), đặc trưng miền thở gian, đặc trưng vật lý (S, φ).
+- **Weather Integration**: Thu thập dữ liệu thở tiết từ Open-Meteo API, resample và tích hợp vào bộ dữ liệu gốc.
+- **Anomaly Detection**: Gán nhãn bất thường (Idling, Leakage, Overload) dựa trên chuẩn ngành IEEE 519 / ISO 50001 với Confidence Score và giải thích.
 - **GAN Augmentation**: Tăng cường tập dữ liệu bằng mô hình sinh (Generative Adversarial Network) với TensorFlow/Keras.
 
 ---
@@ -18,29 +21,46 @@ Dự án tiền xử lý và mô hình hóa dữ liệu tiêu thụ điện năn
 
 ```
 DS108-Electritight/
-│
+|
 ├── data/
-│   ├── raw/                  # [CHỈ ĐỌC] Tệp gốc Steel_industry_data.csv
-│   └── processed/            # Dữ liệu đã qua toàn bộ pipeline (làm sạch, Wavelet, GAN)
+│   ├── raw/                        # [CHỈ ĐỌC] Tệp gốc + DATA_PROVENANCE.md
+│   │   ├── Steel_industry_data.csv
+│   │   ├── weather_gwangyang_2018.csv
+│   │   └── DATA_PROVENANCE.md      # Log thu thập & audit dữ liệu thô
+│   └── processed/                  # Dữ liệu đã qua toàn bộ pipeline
+│       ├── steel_clean.csv
+│       └── steel_final.csv
 │
 ├── notebooks/
-│   ├── 01_eda_and_baseline.ipynb          # Phân tích khám phá & mô hình cơ sở
-│   ├── 02_feature_engineering_math.ipynb  # Biến đổi Wavelet & đặc trưng toán học
-│   └── 03_gan_augmentation.ipynb          # Tăng cường dữ liệu bằng GAN
+│   ├── 01_data_profiling_and_eda.ipynb
+│   ├── 01_eda_and_baseline.ipynb
+│   ├── 02_feature_engineering_math.ipynb
+│   └── 03_gan_augmentation.ipynb
 │
 ├── src/
 │   ├── __init__.py
-│   ├── data_loader.py        # Tải, kiểm tra và làm sạch dữ liệu thô
-│   ├── wavelet_features.py   # Trích xuất đặc trưng Wavelet
-│   ├── gan_augmentation.py   # Định nghĩa và huấn luyện mô hình GAN
-│   ├── pipeline.py           # Pipeline đầu-cuối tích hợp tất cả bước
-│   └── utils.py              # Các tiện ích dùng chung (logging, I/O)
+│   ├── data_loader.py              # Tải, kiểm tra và làm sạch dữ liệu thô
+│   ├── data_quality_audit.py       # Audit 5 nhóm vấn đề chất lượng dữ liệu
+│   ├── time_features.py            # Đặc trưng miền thở gian (lag, rolling, trig)
+│   ├── wavelet_features.py         # Trích xuất đặc trưng Wavelet (DWT)
+│   ├── physical_features.py        # Đặc trưng vật lý (S, φ)
+│   ├── weather.py                  # Thu thập dữ liệu thở tiết từ API (retry, batching)
+│   ├── weather_loader.py           # Load, resample, feature engineering, merge weather
+│   ├── anomaly_labels.py           # Gán nhãn bất thường với Confidence Score
+│   ├── gan_augmentation.py         # Định nghĩa và huấn luyện mô hình GAN
+│   ├── misc.py                     # Tham chiếu TensorFlow GAN (archive)
+│   ├── pipeline.py                 # Pipeline đầu-cuối tích hợp tất cả bước
+│   └── utils.py                    # Tiện ích dùng chung (logging, I/O, constants)
+│
+├── docs/
+│   └── LABELING_GUIDELINE.md       # Hướng dẫn gán nhãn dựa trên chuẩn ngành
 │
 ├── tests/
 │   └── __init__.py
 │
-├── requirements.txt          # Phiên bản thư viện được cố định
-└── README.md                 # Tài liệu này
+├── MODV1.md                        # Tài liệu tích hợp dữ liệu thở tiết
+├── requirements.txt                # Phiên bản thư viện được cố định
+└── README.md                       # Tài liệu này
 ```
 
 > **Quy tắc bất biến**: Thư mục `data/raw/` là **CHỈ ĐỌC**. Không có kịch bản hay notebook nào được phép ghi đè lên thư mục này. Mọi dữ liệu đã xử lý đều được lưu vào `data/processed/`.
@@ -50,12 +70,16 @@ DS108-Electritight/
 ## Mục Tiêu Tiền Xử Lý
 
 | Bước | Mô Tả |
-|------|--------|
-| 1. Tải dữ liệu | Đọc `Steel_industry_data.csv`, kiểm tra kiểu dữ liệu, xử lý giá trị thiếu |
-| 2. EDA & Baseline | Thống kê mô tả, trực quan hóa, xây dựng mô hình hồi quy/phân loại cơ sở |
-| 3. Feature Engineering | Áp dụng DWT (Discrete Wavelet Transform) để trích xuất đặc trưng tần số-thời gian |
-| 4. GAN Augmentation | Huấn luyện GAN để sinh dữ liệu chuỗi thời gian tổng hợp cân bằng lớp |
-| 5. Lưu kết quả | Xuất tệp `.csv` / `.parquet` vào `data/processed/` |
+|------|-------|
+| 1. Tải dữ liệu | Đọc `Steel_industry_data.csv`, kiểm tra kiểu dữ liệu, audit chất lượng |
+| 2. Làm sạch | Loại trùng lặp, nội suy, scale PF từ % về hệ số, xác thực vật lý |
+| 3. Weather Integration | Fetch API, resample 1h -> 15min, engineer 7 features, merge |
+| 4. Time Features | Lag, rolling stats, trigonometric encoding |
+| 5. Wavelet Features | DWT (Discrete Wavelet Transform) Daubechies-4 |
+| 6. Physical Features | Công suất biểu kiến S, góc lệch pha φ |
+| 7. Anomaly Detection | Idling (IEEE 519), Leakage (ISO 50001), Overload (Tukey/IEEE) |
+| 8. GAN Augmentation | Sinh dữ liệu tổng hợp cân bằng lớp (tùy chọn) |
+| 9. Lưu kết quả | Xuất tệp `.csv` vào `data/processed/` |
 
 ---
 
@@ -68,7 +92,7 @@ DS108-Electritight/
 ### Cài đặt
 
 ```bash
-# 1. Clone kho (sau khi repo được đổi tên sang DS108-Electritight trên GitHub)
+# 1. Clone kho
 git clone https://github.com/JH111334/DS108-Electritight.git
 cd DS108-Electritight
 
@@ -106,7 +130,14 @@ Mở và chạy tuần tự:
 ### Chạy pipeline bằng script Python
 
 ```bash
+# Pipeline đầy đủ (bao gồm weather integration + anomaly detection)
 python -m src.pipeline
+
+# Audit dữ liệu thô
+python -m src.data_quality_audit
+
+# Thu thập dữ liệu thở tiết (nếu cần fetch lại)
+python -m src.weather
 ```
 
 ---
@@ -121,6 +152,7 @@ python -m src.pipeline
 | `PyWavelets` | Biến đổi Wavelet rời rạc (DWT) |
 | `tensorflow` | Xây dựng và huấn luyện mô hình GAN |
 | `matplotlib` / `seaborn` | Trực quan hóa dữ liệu |
+| `requests` | Gọi API thở tiết Open-Meteo |
 
 ---
 

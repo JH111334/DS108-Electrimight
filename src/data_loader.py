@@ -1,8 +1,15 @@
 """
 Data Loader Module
 
-Tải, kiểm tra và làm sạch bộ dữ liệu Steel_industry_data.csv.
-Quy tắc: Chỉ đọc từ data/raw/ — không bao giờ ghi vào thư mục đó.
+Tai, kiem tra va lam sach bo du lieu Steel_industry_data.csv.
+Quy tac: Chi doc tu data/raw/ — khong bao gio ghi vao thu muc do.
+
+Cac buoc lam sach chinh:
+  1. Loai bo ban ghi trung lap
+  2. Xu ly gia tri thieu (interpolation tuyen tinh)
+  3. Scale Power Factor tu % (0-100) ve he so (0-1)
+  4. Xac thuc rang buoc vat ly (PF trong [0,1], P >= 0, Q >= 0)
+  5. Sap xep theo thoi gian
 """
 
 from pathlib import Path
@@ -16,22 +23,22 @@ from src.utils import RAW_CSV
 
 def load_steel_data(filepath: Path = RAW_CSV) -> pd.DataFrame:
     """
-    Tải bộ dữ liệu thô từ data/raw/ (chỉ đọc).
+    Tai bo du lieu tho tu data/raw/ (chi doc).
 
     Args:
-        filepath: Đường dẫn đến Steel_industry_data.csv.
+        filepath: Duong dan den Steel_industry_data.csv.
 
     Returns:
-        DataFrame chứa dữ liệu thô.
+        DataFrame chua du lieu tho.
 
     Raises:
-        FileNotFoundError: Nếu tệp không tồn tại tại filepath.
+        FileNotFoundError: Neu tep khong ton tai tai filepath.
     """
     filepath = Path(filepath)
     if not filepath.exists():
         raise FileNotFoundError(
-            f"Không tìm thấy tệp dữ liệu: {filepath}\n"
-            "Hãy đặt Steel_industry_data.csv vào thư mục data/raw/."
+            f"Khong tim thay tep du lieu: {filepath}\n"
+            "Hay dat Steel_industry_data.csv vao thu muc data/raw/."
         )
     df = pd.read_csv(filepath)
     df["date"] = pd.to_datetime(df["date"], dayfirst=True)
@@ -40,13 +47,13 @@ def load_steel_data(filepath: Path = RAW_CSV) -> pd.DataFrame:
 
 def inspect_data(df: pd.DataFrame) -> dict:
     """
-    Kiểm tra sơ bộ DataFrame: shape, kiểu dữ liệu, giá trị thiếu.
+    Kiem tra so bo DataFrame: shape, kieu du lieu, gia tri thieu.
 
     Args:
-        df: DataFrame cần kiểm tra.
+        df: DataFrame can kiem tra.
 
     Returns:
-        Dictionary chứa các thống kê kiểm tra.
+        Dictionary chua cac thong ke kiem tra.
     """
     report = {
         "shape": df.shape,
@@ -60,30 +67,71 @@ def inspect_data(df: pd.DataFrame) -> dict:
 
 def clean_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
     """
-    Làm sạch dữ liệu: xử lý giá trị thiếu, loại bỏ bản ghi trùng lặp,
-    đảm bảo kiểu dữ liệu đúng.
+    Lam sach du lieu: xu ly gia tri thieu, loai bo ban ghi trung lap,
+    dam bao kieu du lieu dung, va xu ly cac van de vat ly dac biet.
+
+    Cac van de duoc xu ly:
+      1. Loai bo trung lap
+      2. Noi suy gia tri thieu (phu hop chuoi thoi gian)
+      3. Scale Power Factor tu % ve he so (0-1)
+      4. Validation PF sau scale
+      5. Xac thuc rang buoc vat ly co ban
 
     Args:
-        df: DataFrame thô đã tải từ load_steel_data().
+        df: DataFrame tho da tai tu load_steel_data().
 
     Returns:
-        Tuple gồm (DataFrame đã làm sạch, cleaning report dict).
+        Tuple gom (DataFrame da lam sach, cleaning report dict).
     """
     report: dict = {}
     df = df.copy()
 
-    # Loại bỏ bản ghi trùng lặp
+    # 1. Loai bo ban ghi trung lap
     n_before = len(df)
     df = df.drop_duplicates()
     report["duplicates_removed"] = n_before - len(df)
 
-    # Xử lý giá trị thiếu bằng nội suy tuyến tính (phù hợp chuỗi thời gian)
+    # 2. Xu ly gia tri thieu bang noi suy tuyen tinh (phu hop chuoi thoi gian)
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     missing_before = df[numeric_cols].isnull().sum().sum()
     df[numeric_cols] = df[numeric_cols].interpolate(method="linear", limit_direction="both")
     report["missing_imputed"] = int(missing_before)
 
-    # Sắp xếp theo thời gian
+    # 3. Scale Power Factor tu dang % (0-100) ve he so (0-1)
+    # Day la van de CRITICAL phat hien boi data_quality_audit.py
+    pf_cols = ["Lagging_Current_Power_Factor", "Leading_Current_Power_Factor"]
+    pf_scaled_count = 0
+    for col in pf_cols:
+        if col in df.columns:
+            max_val = df[col].max()
+            if max_val > 1.0:
+                # Du lieu dang o dang %, can chia 100
+                df[col] = df[col] / 100.0
+                pf_scaled_count += 1
+                report[f"{col}_scaled"] = True
+                report[f"{col}_max_before"] = float(max_val)
+            else:
+                report[f"{col}_scaled"] = False
+    report["pf_columns_scaled"] = pf_scaled_count
+
+    # 4. Validation PF sau scale: dam bao nam trong [0, 1]
+    for col in pf_cols:
+        if col in df.columns:
+            invalid = (df[col] < 0) | (df[col] > 1)
+            n_invalid = int(invalid.sum())
+            if n_invalid > 0:
+                # Clip ve [0, 1]
+                df[col] = df[col].clip(0, 1)
+                report[f"{col}_invalid_clipped"] = n_invalid
+
+    # 5. Xac thuc rang buoc vat ly co ban
+    # P (Usage_kWh) khong the am
+    n_negative_usage = int((df["Usage_kWh"] < 0).sum())
+    if n_negative_usage > 0:
+        df.loc[df["Usage_kWh"] < 0, "Usage_kWh"] = 0
+        report["negative_usage_corrected"] = n_negative_usage
+
+    # 6. Sap xep theo thoi gian
     if "date" in df.columns:
         df = df.sort_values("date").reset_index(drop=True)
 
