@@ -1,0 +1,26 @@
+\section{KẾT LUẬN}
+\label{sec:conclusion}
+% =============================================================================
+
+Bài báo này trình bày một pipeline tiền xử lý và xây dựng tập dữ liệu toàn diện
+cho tập dữ liệu Tiêu thụ Điện năng Ngành thép.
+Bằng cách tích hợp thống kê miền thời gian, hệ số Biến đổi Wavelet rời rạc,
+và các đạo hàm dựa trên vật lý, framework đề xuất đã làm phong phú tập dữ liệu gốc
+từ 11 lên 64 đặc trưng.
+Ba lớp bất thường được gán nhãn bằng các ngưỡng vật lý dựa trên quy tắc,
+và một module tăng cường GAN đã tổng hợp 500 mẫu lớp thiểu số.
+
+Các đóng góp chính là:
+\begin{itemize}
+\item Một framework kỹ thuật đặc trưng đa miền trích xuất đặc trưng thời gian, phổ, và vật lý
+\item Một chiến lược gán nhãn bất thường dựa trên vật lý phát hiện chạy không tải, rò rỉ, và quá tải mà không cần chú thích thủ công
+\item Một pipeline tăng cường GAN với độ trung thực thống kê bậc một được xác thực qua PCA và t-SNE
+\end{itemize}
+
+Hướng nghiên cứu trong tương lai sẽ khám phá ngưỡng thích ứng qua phân cụm,
+kiến trúc TimeGAN để bảo toàn thời gian tốt hơn,
+và đánh giá hạ nguồn sử dụng các mô hình LSTM và Transformer.
+
+% =============================================================================
+% LỜI CẢM ƠN
+% =============================================================================

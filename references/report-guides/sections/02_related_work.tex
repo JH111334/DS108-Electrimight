@@ -1,0 +1,34 @@
+\section{CÁC NGHIÊN CỨU LIÊN QUAN}
+\label{sec:related}
+% =============================================================================
+
+\subsection{Dự báo Tiêu thụ Điện năng Công nghiệp}
+
+Dự báo tải công nghiệp đã được nghiên cứu rộng rãi sử dụng các phương pháp thống kê và học máy. Các mô hình tích hợp trung bình di động tự hồi quy (ARIMA) cung cấp các baseline có thể diễn giải nhưng không nắm bắt được động lực phi tuyến~\cite{hippert2001}. Gần đây hơn, các kiến trúc học sâu như mạng Bộ nhớ Ngắn hạn Dài (LSTM) đã chứng minh độ chính xác vượt trội trong việc mô hình hóa các phụ thuộc thời gian~\cite{bouktif2020}. Tuy nhiên, các nghiên cứu này chủ yếu dựa vào dữ liệu tổng hợp cấp hệ thống, trong khi các tải công nghiệp người dùng cuối---đặc biệt trong sản xuất thép---thể hiện các biến động đột ngột do lập lịch lò và vận hành máy cán~\cite{khuntia2016}.
+
+\subsection{Biến đổi Wavelet trong Phân tích Chuỗi thời gian}
+
+Phân tích miền tần số bổ sung cho các phương pháp miền thời gian bằng cách tiết lộ các hành vi thoáng qua vô hình đối với thống kê trượt. Biến đổi Fourier Nhanh (FFT) phân rã tín hiệu thành các thành phần tần số nhưng hy sinh sự định vị thời gian. Ngược lại, Biến đổi Wavelet rời rạc (DWT) sử dụng các wavelet mẹ được chia tỷ lệ và dịch chuyển để nắm bắt cả thông tin tần số và thời gian, làm cho nó đặc biệt phù hợp cho các tín hiệu tải công nghiệp không dừng~\cite{mallat1989}. Zhang et al.~\cite{zhang2024} đã chứng minh rằng một mô hình lai DWT-LSTM đạt MAPE thấp tới 0,59\% cho dự báo tải ngắn hạn.
+
+\subsection{GAN và Tăng cường Dữ liệu Tổng hợp}
+
+Mất cân bằng lớp tạo ra một thách thức dai dẳng trong phát hiện bất thường, nơi các sự kiện bất thường chiếm chưa đến 1\% các quan sát~\cite{chandola2009}. Các Mạng đối kháng Sinh (GAN), được giới thiệu bởi Goodfellow et al.~\cite{goodfellow2014}, đã nổi lên như một paradigm mạnh mẽ để tạo dữ liệu tổng hợp. Đối với các ứng dụng chuỗi thời gian, Yoon et al.~\cite{yoon2019} đã đề xuất TimeGAN, kết hợp huấn luyện đối kháng với mô hình hóa chuỗi có giám sát để bảo toàn động lực thời gian.
+
+\begin{table}[htbp]
+\caption{SO SÁNH CÁC NGHIÊN CỨU LIÊN QUAN}
+\label{tab:related}
+\centering
+\begin{tabular}{@{}ccccccc@{}}
+\toprule
+Tài liệu & Dự báo & DWT & Vật lý & Bất thường & GAN & Miền \\
+\midrule
+\cite{hippert2001} & Có & Không & Không & Không & Không & Chung \\
+\cite{zhang2024} & Có & Có & Không & Không & Không & Lưới điện \\
+\cite{tang2025} & Không & Không & Không & Không & Có & Sản xuất \\
+Ours & Có & Có & Có & Có & Có & Thép \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% =============================================================================

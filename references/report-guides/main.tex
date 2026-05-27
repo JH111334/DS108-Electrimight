@@ -1,0 +1,81 @@
+% =============================================================================
+% IEEEtran Template for DS108 Electrimight Report
+% =============================================================================
+% CHANGELOG:
+% - Added Vietnamese language support (inputenc, fontenc, babel)
+% - Fixed factual inconsistency: 7 -> 11 original features in Abstract
+% - Translated section headers and structural text to Vietnamese
+% - Expanded Physical-Domain Feature Engineering with full Vietnamese content
+% - Fixed spelling: thời -> thời, từ trình -> từ trường
+% - Ensured sentence capitalization in Vietnamese paragraphs
+% =============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% ---------- Vietnamese Support ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+% Keep IEEE English labels for tables/figures (optional; remove if you want Vietnamese labels)
+\addto\captionsvietnamese{%
+  \def\tablename{TABLE}%
+  \def\figurename{Fig.}%
+}
+
+% ---------- Packages ----------
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{subcaption}
+
+% ---------- Hyphenation ----------
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+% ---------- Document ----------
+\begin{document}
+
+% ---------- Title ----------
+\title{Kỹ thuật Trích chọn Đặc trưng Wavelet và Tăng cường GAN \\
+cho Xây dựng Tập dữ liệu Tiêu thụ Điện năng Ngành thép}
+
+% ---------- Authors ----------
+\author{
+    \IEEEauthorblockN{Hoàng Nguyễn Minh Khang\textsuperscript{1},
+    Nguyễn Sỹ Huỳnh\textsuperscript{1}}
+    \IEEEauthorblockA{\textsuperscript{1}\textit{Trường Đại học Công nghệ Thông tin},
+    ĐHQG Thành phố Hồ Chí Minh, Việt Nam}
+    \IEEEauthorblockA{Email: [email tác giả 1], [email tác giả 2]}
+}
+
+\maketitle
+
+% ---------- Abstract ----------
+\begin{abstract}
+Dự báo tiêu thụ điện năng công nghiệp và phân loại rủi ro đòi hỏi các tập dữ liệu chất lượng cao với đặc trưng phong phú. Bài báo này trình bày một pipeline tiền xử lý toàn diện cho tập dữ liệu Tiêu thụ Điện năng Ngành thép, một tập dữ liệu chuỗi thời gian thực tế thu thập từ một nhà máy thép Hàn Quốc. Chúng tôi đề xuất một framework kỹ thuật đặc trưng đa miền bao gồm thống kê miền thời gian (đặc trưng trễ và trượt), đặc trưng miền tần số qua Biến đổi Wavelet rời rạc (DWT) với wavelet Daubechies-4, và các đạo hàm miền vật lý bao gồm Công suất biểu kiến và Góc lệch pha. Hơn nữa, các nhãn bất thường cho hiện tượng chạy không tải, rò rỉ năng lượng, và quá tải cục bộ được tạo ra bằng ngưỡng vật lý dựa trên quy tắc. Để giải quyết mất cân bằng lớp, một Mạng đối kháng Sinh (GAN) được sử dụng để tăng cường dữ liệu lớp thiểu số. Tập dữ liệu đã xử lý mở rộng từ 11 đặc trưng gốc lên 64 đặc trưng kỹ thuật với ba chỉ báo bất thường nhị phân. Thử nghiệm xác nhận rằng các đặc trưng wavelet và vật lý trích xuất có hiệu quả trong việc nắm bắt các hành vi tải không dừng và các dấu hiệu lỗi tiềm ẩn, cung cấp một nền tảng vững chắc cho các mô hình dự báo và phát hiện bất thường phía sau.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Tiêu thụ điện năng, tiền xử lý dữ liệu, biến đổi wavelet rời rạc, kỹ thuật đặc trưng, mạng đối kháng sinh, phát hiện bất thường, ngành thép.
+\end{IEEEkeywords}
+
+% =============================================================================
+
+\input{sections/01_introduction.tex}
+\input{sections/02_related_work.tex}
+\input{sections/03_methodology.tex}
+\input{sections/04_experimental_setup.tex}
+\input{sections/05_results.tex}
+\input{sections/06_conclusion.tex}
+\input{sections/07_acknowledgments_references.tex}
+\input{sections/08_appendix_datasheet.tex}
+\input{sections/10_appendix_c.tex}
+
+\end{document}

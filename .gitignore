@@ -208,6 +208,5 @@ __marimo__/
 
 # Generated artifacts
 data/processed/
-*_extracted.txt
-References_Outlines.txt
+artifacts/
 fix_anomaly.py

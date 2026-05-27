@@ -1,0 +1,37 @@
+\section{Kết quả Kiểm thử và Audit}
+\label{app:tests}
+
+\subsection{Kết quả Unit Tests}
+
+Toàn bộ pipeline được bao phủ bởi 49 unit tests sử dụng pytest.
+Các module được kiểm thử bao gồm \texttt{data\_loader}, \texttt{data\_assertions}, và \texttt{anomaly\_labels}.
+Tất cả tests đều pass, đảm bảo tính đúng đắn của các chức năng core.
+
+\begin{table}[htbp]
+\caption{TÓM TẮT KIỂM THỬ UNIT TESTS}
+\label{tab:tests}
+\centering
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Module & Số test & Tỷ lệ pass \\
+\midrule
+\texttt{data\_loader} & 10 & 100\% \\
+\texttt{data\_assertions} & 24 & 100\% \\
+\texttt{anomaly\_labels} & 15 & 100\% \\
+\midrule
+Tổng & 49 & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Module Missingness Audit}
+
+Mặc dù tập dữ liệu hiện tại không chứa giá trị thiếu,
+module \texttt{missingness\_analysis.py} được triển khai như một cơ chế audit phòng ngừa.
+Module này thực hiện Little's MCAR test, MAR logistic test, và MNAR range analysis
+theo khung lý thuyết của Rubin (1976),
+đảm bảo pipeline sẵn sàng xử lý missing data một cách có căn cứ khoa học
+khi tích hợp thêm cảm biến hoặc dữ liệu mở rộng trong tương lai.
+
+% =============================================================================

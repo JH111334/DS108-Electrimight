@@ -1,0 +1,292 @@
+\section{PHƯƠNG PHÁP}
+\label{sec:methodology}
+% =============================================================================
+
+\subsection{Tổng quan Tập dữ liệu}
+
+Tập dữ liệu sử dụng trong nghiên cứu này là tập dữ liệu Tiêu thụ Điện năng Ngành thép~\cite{uci2023}, có sẵn công khai từ Kho lưu trữ Học máy UCI.
+Nó chứa 35.040 quan sát được ghi lại tại các khoảng 15 phút từ một nhà máy sản xuất thép Hàn Quốc trong năm 2018.
+Mỗi quan sát bao gồm 11 biến ban đầu: công suất tác dụng ($P$), công suất phản kháng trễ và sớm ($Q_{\text{lag}}$, $Q_{\text{lead}}$), hệ số công suất (PF), lượng khí CO$_2$ tương đương, loại tải, trạng thái tuần, và các biến thời gian (NSM, ngày trong tuần).
+
+\subsection{Tiền xử lý Dữ liệu}
+
+Giai đoạn tiền xử lý bao gồm kiểm tra dữ liệu, loại bỏ trùng lặp, và xử lý giá trị thiếu (nếu có) bằng nội suy tuyến tính.
+Đối với dữ liệu chuỗi thời gian, nội suy tuyến tính được áp dụng:
+\begin{equation}
+y(t) = y(t_1) + \frac{y(t_2) - y(t_1)}{t_2 - t_1}(t - t_1)
+\label{eq:interp}
+\end{equation}
+
+Một vấn đề quan trọng được phát hiện trong quá trình audit dữ liệu là cột Power Factor gốc được lưu dưới dạng phần trăm (0--100) thay vì hệ số (0--1).
+Việc không phát hiện lỗi này sẽ làm sai lệch hoàn toàn các tính toán vật lý phụ thuộc PF, bao gồm góc lệch pha $\varphi = \arccos(\text{PF})$.
+Pipeline tự động phát hiện và scale về $[0,1]$ bằng cách kiểm tra $\max(\text{PF}) > 1{,}0$.
+
+\subsubsection{Phân tích Cơ chế Thiếu Dữ liệu}
+
+Trong quá trình thiết kế pipeline, chúng tôi tích hợp module phân tích cơ chế thiếu dữ liệu theo khung lý thuyết của Rubin~\cite{rubin1976} như một cơ chế audit phòng ngừa.
+Cơ chế thiếu dữ liệu được phân loại thành ba nhóm: MCAR (Missing Completely At Random), MAR (Missing At Random), và MNAR (Missing Not At Random).
+Việc xác định đúng cơ chế ảnh hưởng trực tiếp đến lựa chọn phương pháp imputation và độ tin cậy của suy luận thống kê sau này.
+
+\textbf{Little's MCAR Test (Đa biến xấp xỉ).}
+Với mỗi cột có missing, chúng tôi chia mẫu thành nhóm missing và nhóm observed, sau đó so sánh vector trung bình của các cột số khác bằng kiểm định $t$-test độc lập với hiệu chỉnh Bonferroni.
+Nếu không có sự khác biệt ý nghĩa nào, ta không thể bác bỏ giả thuyết MCAR:
+\begin{equation}
+H_0: \boldsymbol{\mu}_{\text{obs}} = \boldsymbol{\mu}_{\text{mis}} \quad \text{(MCAR)}
+\label{eq:mcar}
+\end{equation}
+
+\textbf{MAR Logistic Test.}
+Missing indicator $M_j \in \{0,1\}$ của cột $j$ được mô hình hóa bằng hồi quy logistic dựa trên các giá trị observed của các cột khác:
+\begin{equation}
+\log\frac{P(M_j=1)}{1-P(M_j=1)} = \beta_0 + \sum_{k \neq j} \beta_k X_k
+\label{eq:mar}
+\end{equation}
+Nếu AUC $> 0{,}60$, missing có khả năng phụ thuộc vào dữ liệu observed → MAR.
+
+\textbf{MNAR Range Analysis.}
+Nếu tỷ lệ missing tập trung bất thường ở các bin giá trị thấp hoặc cao của chính cột đó, dấu hiệu MNAR xuất hiện.
+Điều này thường gặp trong hệ thống cảm biến khi thiết bị ngừng hoạt động ở vùng giá trị cực đoan.
+
+\subsubsection{Kiểm tra khẳng định dữ liệu}
+
+Để đảm bảo tính tái lập và phát hiện lỗi tự động, một module kiểm tra khẳng định (data assertions) được tích hợp sau mỗi bước pipeline.
+Các khẳng định này kiểm tra ràng buộc vật lý, tính nhất quán thời gian, và tính toàn vẹn dữ liệu.
+
+Các kiểm tra chính bao gồm:
+\begin{itemize}
+    \item \textbf{Ràng buộc vật lý:} $P \ge 0$, PF $\in [0,1]$, $S^2 \approx P^2 + Q^2$.
+    \item \textbf{Nhất quán thời gian:} Dữ liệu sắp xếp tăng dần, không trùng lặp timestamp, NSM khớp với \texttt{date}.
+    \item \textbf{Toàn vẹn:} Không có giá trị null sau khi nội suy.
+    \item \textbf{Tỷ lệ bất thường:} Tổng tỷ lệ anomaly $< 10\%$.
+    \item \textbf{Số lượng đặc trưng:} 64 cột sau feature engineering.
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{CÁC KHẲNG ĐỊNH DỮ LIỆU THEO GIAI ĐOẠN PIPELINE}
+\label{tab:assertions}
+\centering
+\small
+\begin{tabular}{@{}lp{5.5cm}@{}}
+\toprule
+Giai đoạn & Các khẳng định được kích hoạt \\
+\midrule
+Sau làm sạch & $P \ge 0$, PF $\in [0,1]$, thời gian tăng dần, không null \\
+Sau đặc trưng thời gian & Kiểm tra lại như trên \\
+Sau đặc trưng vật lý & Thêm $S^2 \approx P^2 + Q^2$ \\
+Sau gán nhãn & Thêm tỷ lệ anomaly $< 10\%$, số cột $\ge 40$ \\
+Sau GAN & Thêm bảo toàn ma trận tương quan real vs synthetic \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Kỹ thuật Đặc trưng Miền Thờ gian}
+
+Đặc trưng trễ được xây dựng với các độ trễ $k \in \{1, 2, 4, 96\}$
+tương ứng với 15 phút, 30 phút, 1 giờ, và 24 giờ:
+\begin{equation}
+x_{\text{lag}}(k) = x(t - k)
+\label{eq:lag}
+\end{equation}
+
+Thống kê cửa sổ trượt bao gồm trung bình, độ lệch chuẩn,
+và độ skewness trên các cửa sổ $w \in \{24, 48, 96\}$.
+Đặc biệt, rolling standard deviation tăng vọt thường là dấu hiệu báo trước sự cố quá tải hoặc chuyển đổi chế độ vận hành đột ngột.
+
+Mã hóa chu kỳ của Số giây tính từ nửa đêm (NSM)
+đảm bảo tính liên tục tại nửa đêm:
+\begin{align}
+\text{NSM}_{\sin} &= \sin\left(\frac{2\pi \cdot \text{NSM}}{86400}\right) \\
+\text{NSM}_{\cos} &= \cos\left(\frac{2\pi \cdot \text{NSM}}{86400}\right)
+\end{align}
+
+\subsection{Trích xuất Đặc trưng Miền Tần số (DWT)}
+
+Biến đổi Wavelet rời rạc phân rã tín hiệu thành
+các hệ số xấp xỉ $cA$ và chi tiết $cD$:
+\begin{equation}
+S(t) = cA_j(t) + \sum_{i=1}^{j} cD_i(t)
+\label{eq:dwt}
+\end{equation}
+
+Wavelet mẹ $\psi(t)$ được co giãn và tịnh tiến để tạo họ hàm cơ sở:
+\begin{equation}
+\psi_{a,b}(t) = \frac{1}{\sqrt{a}}\psi\left(\frac{t-b}{a}\right)
+\label{eq:wavelet_basis}
+\end{equation}
+trong đó $a$ là tham số tỷ lệ (scale) và $b$ là tham số dịch chuyển (shift).
+
+Chúng tôi sử dụng wavelet Daubechies-4 (db4) với 3 mức phân rã.
+Lựa chọn db4 dựa trên sự cân bằng giữa độ mượt (smoothness) và độ dài hỗ trợ compact:
+db4 đủ mượt để tránh artifact số học, đủ ngắn để bắt giữ các sự kiện đột ngột trong tải công nghiệp.
+Theo Liu et al.~\cite{liu2022modwt}, việc sử dụng Maximal Overlap DWT (MODWT)
+thay vì DWT tiêu chuẩn có thể giảm thiểu rò rỉ thông tin tần số
+và cải thiện độ ổn định của đặc trưng wavelet trên cửa sổ trượt.
+Một cửa sổ trượt 64 mẫu (16 giờ) được sử dụng để tính toán
+các đặc trưng wavelet (mean, std, energy, max\_abs) tại mỗi bước thời gian.
+
+\subsection{Kỹ thuật Đặc trưng Miền Vật lý}
+
+Để làm phong phú tập dữ liệu với các đại lượng điện năng mang tính vật lý,
+hai biến phái sinh quan trọng --- Công suất biểu kiến ($S$) và Góc lệch pha
+($\varphi$) --- được tính toán từ các biến đo công suất thô.
+Những đặc trưng này giúp phơi bày các chế độ vận hành bất thường mà công suất tác dụng ($P$) đơn thuần không thể phát hiện,
+chẳng hạn như hiện tượng kẹt rô-to hoặc rò rỉ cách điện tiến triển,
+từ đó cung cấp các chỉ báo hữu ích cho mô hình dự báo tải và phân loại rủi ro.
+
+\textbf{1) Công suất biểu kiến ($S$):}
+Công suất biểu kiến là độ lớn của công suất phức trong mạch điện xoay chiều.
+Đại lượng này quyết định giới hạn chịu tải nhiệt và cơ học của dây cáp, máy biến áp và thiết bị đóng cắt.
+Khi công suất tác dụng không đổi nhưng công suất phản kháng tăng (do kẹt rô-to hoặc bão hòa từ trường),
+$S$ sẽ phình to --- đây là tín hiệu cảnh báo quá dòng.
+
+\textbf{Định nghĩa:}
+\begin{equation}
+S = \sqrt{P^2 + Q^2}
+\label{eq:apparent}
+\end{equation}
+Trong đó $P = \text{Usage\_kWh}$ là công suất tác dụng (kW),
+và $Q = \text{Lagging\_Current\_Reactive.Power\_kVarh}$ là công suất phản kháng trễ (kVar).
+
+\textbf{2) Góc lệch pha ($\varphi$):}
+Góc lệch pha định lượng độ dịch thời gian giữa sóng điện áp và dòng điện.
+Đại lượng này cung cấp thang đo tuyến tính sắc nét hơn Hệ số công suất (PF),
+đặc biệt khi phụ tải trở nên phi tuyến hoặc mang tính cảm kháng cao.
+
+\textbf{Định nghĩa:}
+\begin{equation}
+\varphi = \arccos(\text{PF})
+\label{eq:phase}
+\end{equation}
+Trong đó $\text{PF} = \text{Lagging\_Current\_Power\_Factor}$ được giới hạn trong khoảng $[0, 1]$
+trước khi áp dụng hàm $\arccos$ nhằm đảm bảo tính ổn định số học.
+Kết quả $\varphi$ được biểu diễn bằng radian.
+
+\begin{table}[htbp]
+\caption{CÁC ĐẶC TRƯNG MIỀN VẬT LÝ}
+\label{tab:physical}
+\centering
+\small
+\begin{tabular}{@{}p{2.2cm}cp{2.2cm}cp{3.8cm}@{}}
+\toprule
+Đặc trưng & Ký hiệu & Công thức & Đơn vị & Ý nghĩa vật lý \\
+\midrule
+Công suất biểu kiến & $S$ & $\sqrt{P^2+Q^2}$ & kVA & Tổng công suất đặt lên hệ thống truyền tải; cảnh báo quá tải sớm. \\
+Góc lệch pha & $\varphi$ & $\arccos(\mathrm{PF})$ & rad & Thang đo tuyến tính cho tính phi tuyến của phụ tải; phân biệt rõ hơn PF gần 1. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Giải thích vật lý và ứng dụng:}
+Trong bối cảnh nhà máy thép, cả $S$ và $\varphi$ đóng vai trò chỉ báo nhạy với bất thường.
+Sự gia tăng đồng thờ của $S$ kèm theo $\varphi$ tăng nhanh thường báo hiệu quá tải cảm kháng hoặc hỏng hóc cách điện.
+Ngược lại, $S$ tăng trong khi $\varphi$ ổn định có thể chỉ ra quá tải thuần trở.
+Bằng cách đưa các kênh phái sinh từ vật lý vào không gian đặc trưng,
+các mô hình dự báo và phân loại phía sau sẽ có thêm các giả thiết tiên nghiệm
+mà các đặc trưng thuần thống kê (trung bình trượt, năng lượng sóng) không thể cung cấp.
+
+\subsection{Tích hợp Dữ liệu Khí tượng}
+
+Dữ liệu khí tượng từ Open-Meteo API (tọa độ 34,94°N, 127,70°E)
+được tích hợp để cung cấp ngữ cảnh môi trường cho tiêu thụ điện.
+Do dữ liệu khí tượng gốc có tần suất 1 giờ trong khi dữ liệu điện là 15 phút,
+chúng tôi thực hiện nội suy tuyến tính để resample về 15 phút:
+\begin{equation}
+w(t) = w(t_1) + \frac{w(t_2) - w(t_1)}{t_2 - t_1}(t - t_1), \quad t \in [t_1, t_2]
+\label{eq:weather_interp}
+\end{equation}
+trong đó $w$ là biến khí tượng (nhiệt độ, độ ẩm, tốc độ gió).
+
+Các đặc trưng khí tượng phái sinh được tính toán thêm:
+\begin{itemize}
+    \item \textbf{temp\_rolling\_24h:} Nhiệt độ trung bình 24 giờ (96 bước) để làm mượt biến động ngày-đêm.
+    \item \textbf{temp\_diff\_24h:} Chênh lệch nhiệt so với cùng thờ điểm hôm trước, phản ánh xu hướng thờ tiết.
+    \item \textbf{heat\_index:} Chỉ số nhiệt cảm nhận Rothfusz, proxy cho tải làm mát HVAC.
+    \item \textbf{humidity\_x\_temp:} Tương tác nhiệt-ẩm, phản ánh điều kiện khí hậu khắc nghiệt.
+\end{itemize}
+
+Merge thực hiện bằng \texttt{left\_join} trên cột \texttt{date},
+đảm bảo không làm thay đổi số dòng của dữ liệu điện và không sử dụng back-fill
+nhằm tránh đưa thông tin thờ tiết tương lai vào quá khứ (zero data leakage).
+
+\subsection{Chiến lược Gán nhãn Bất thường}
+
+Ba loại bất thường được định nghĩa bằng các ngưỡng dựa trên vật lý:
+\begin{itemize}
+\item \textbf{Chạy không tải:} Tải nhẹ trong giờ nghỉ với tiêu thụ cao và PF $< 0{,}5$
+\item \textbf{Rò rỉ:} Trung bình trượt 1 tuần vượt quá baseline 4 tuần đầu tiên 5\%
+(theo ISO~50001 và Abraham et al.~\cite{abraham2021iso};
+baseline 4 tuần giảm thiểu bias từ một tuần khởi động bất thường)
+\item \textbf{Quá tải:} Tiêu thụ vượt quá phân vị 99{,}5 với công suất phản kháng cao và PF $< 0{,}7$
+\end{itemize}
+
+Mỗi nhãn được gán kèm confidence score trong $[0,1]$ phản ánh mức độ tin cậy của quyết định.
+Score được tính bằng trung bình có trọng số của các chỉ báo nhị phân thành phần,
+đảm bảo tính giải thích (explainability) và tránh ``black-box'' labeling.
+
+\subsection{Tăng cường Dữ liệu dựa trên GAN}
+
+Mất cân bằng lớp là một thách thức nghiêm trọng trong phát hiện bất thường,
+với tỷ lệ anomaly khoảng 6--7\%.
+Chúng tôi sử dụng Mạng đối kháng Sinh (GAN) để tăng cường dữ liệu lớp thiểu số.
+Kiến trúc được chọn là mạng fully connected tiêu chuẩn với hàm kích hoạt LeakyReLU
+vì dữ liệu sau feature engineering là vector đặc trưng đa chiều,
+không còn cấu trúc không gian-thời gian thô cần được bảo toàn bởi CNN hoặc RNN.
+
+
+\\textbf{Chiến lược huấn luyện:} Generator được huấn luyện \\textbf{chỉ trên các mẫu bất thường} (minority class, 2.388 mẫu)
+nhằm học phân phối đặc trưng của lớp thiểu số thay vì bị chi phối bởi lớp đa số.
+Sau khi huấn luyện, Generator sinh ra 500 mẫu synthetic được nối vào tập dữ liệu gốc,
+bổ sung thêm dữ liệu cho lớp anomaly nhằm hỗ trợ các bộ phân loại phía sau.
+Kiến trúc FC-GAN được chọn làm baseline đơn giản;
+tuy nhiên, theo Yoon et al.~\cite{yoon2019} và Li et al.~\cite{li2022ttsgan},
+các kiến trúc chuyên biệt cho chuỗi thờ gian như TimeGAN hoặc TTS-GAN
+sẽ bảo toàn động lực thờ gian tốt hơn cho dữ liệu công nghiệp.
+Mục tiêu minimax của GAN được định nghĩa:
+\begin{equation}
+\min_G \max_D \mathcal{L}(D,G) = \mathbb{E}_{x\sim p_{\text{data}}}\big[\ln D(x)\big] +
+\mathbb{E}_{z\sim p_z}\big[\ln(1-D(G(z)))\big]
+\label{eq:gan}
+\end{equation}
+
+Trong đó $G$ là generator nhận vector nhiễu $z \sim \mathcal{N}(0,\mathbf{I})$
+và sinh mẫu tổng hợp $G(z)$; $D$ là discriminator phân biệt mẫu thật và giả.
+Cả hai mạng được tối ưu bằng Adam với learning rate $2\times 10^{-4}$ và $\beta_1 = 0{,}5$.
+
+\subsection{Tích hợp Pipeline}
+
+Pipeline tiền xử lý được triển khai dưới dạng luồng tuần tự gồm 7 bước (Alg.~\ref{alg:pipeline}).
+Các kiểm tra khẳng định (assertions) được tích hợp sau mỗi bước
+để đảm bảo tính tái lập và phát hiện lỗi tự động.
+
+\begin{algorithm}[htbp]
+\caption{DS108-ELECTRIMIGHT PIPELINE}
+\label{alg:pipeline}
+\begin{algorithmic}[1]
+\REQUIRE Raw CSV $D_{\text{raw}}$, Weather CSV $W_{\text{raw}}$
+\ENSURE Processed dataset $D_{\text{final}}$
+\STATE $D_1 \leftarrow \text{load}(D_{\text{raw}})$ \COMMENT{Parse date với dayfirst=True}
+\STATE $D_2, R_{\text{clean}} \leftarrow \text{clean}(D_1)$
+\STATE \COMMENT{Remove duplicates, linear interpolation, PF scale, physical validation}
+\STATE $D_3, R_{\text{weather}} \leftarrow \text{integrate\_weather}(D_2, W_{\text{raw}})$
+\STATE \COMMENT{Resample 1h→15min, engineer derived features, left join}
+\STATE $D_4 \leftarrow \text{build\_time\_features}(D_3)$
+\STATE \COMMENT{Lag $\{1,2,4,96\}$, rolling $\{24,48,96\}$, cyclical NSM}
+\STATE $D_5 \leftarrow \text{rolling\_wavelet\_features}(D_4, \text{db4}, L=3, w=64)$
+\STATE $D_6 \leftarrow \text{build\_physical\_features}(D_5)$
+\STATE \COMMENT{Compute $S = \sqrt{P^2+Q^2}$ and $\varphi = \arccos(\text{PF})$}
+\STATE $D_7 \leftarrow \text{label\_all\_anomalies}(D_6)$
+\STATE \COMMENT{Idling, Leakage, Overload with confidence scores}
+\STATE $\text{run\_pipeline\_assertions}(D_7, \text{stage}=\text{post\_labeling})$
+\IF{use\_GAN}
+    \STATE $G, D_{\text{net}} \leftarrow \text{train\_GAN}(D_7^{(\text{normal})})$
+    \STATE $D_{\text{syn}} \leftarrow \text{generate}(G, n_{\text{syn}})$
+    \STATE $D_{\text{final}} \leftarrow D_7 \cup D_{\text{syn}}$
+    \STATE $\text{assert\_correlation\_preserved}(D_7, D_{\text{syn}})$
+\ELSE
+    \STATE $D_{\text{final}} \leftarrow D_7$
+\ENDIF
+\STATE \textbf{return} $D_{\text{final}}$
+\end{algorithmic}
+\end{algorithm}
+
+% =============================================================================

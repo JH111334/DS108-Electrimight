@@ -1,0 +1,11 @@
+{
+  "minority_samples": 13012,
+  "n_features": 55,
+  "n_synthetic": 500,
+  "real_mean_usage": 33.15493237011989,
+  "syn_mean_usage": 82.87454986572266,
+  "real_std_usage": 36.34530182486646,
+  "syn_std_usage": 57.955963134765625,
+  "mean_error_pct": 149.96145050324824,
+  "std_error_pct": 59.459297969328574
+}

@@ -1,0 +1,82 @@
+% =============================================================================
+% APPENDIX: DATASHEET (Gebru et al., 2021)
+% =============================================================================
+\newpage
+\appendix
+
+\section{DATASHEET}
+\label{app:datasheet}
+
+Phụ lục này trình bày \textit{Datasheet} cho tập dữ liệu đã xử lý `steel\_final.csv`, tuân theo khuyến nghị của Gebru et al.~\cite{gebru2021datasheets}.
+Data Codebook đầy đủ (định nghĩa 64 cột) được cung cấp dưới dạng file CSV riêng biệt kèm theo repository.
+
+% ---------------------------------------------------------------------------
+\subsection{Thông tin Tổng quan}
+\label{app:dataset-overview}
+
+\begin{table}[htbp]
+\caption{THÔNG TIN TỔNG QUAN DATASET}
+\centering
+\small
+\begin{tabular}{@{}lp{8cm}@{}}
+\toprule
+Thuộc tính & Giá trị \\
+\midrule
+Tên dataset & DS108-Electrimight (Steel Industry Energy Consumption) \\
+Số mẫu & 35.040 (01/01/2018 -- 31/12/2018, 15 phút/mẫu) \\
+Số cột & 64 (11 gốc + 53 kỹ thuật và nhãn) \\
+Nguồn gốc & UCI ML Repository (điện năng) + Open-Meteo API (khí tượng) \\
+Địa điểm & Nhà máy thép POSCO Gwangyang, Hàn Quốc \\
+License & UCI License (gốc) + MIT (đặc trưng kỹ thuật) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\subsection{Datasheet — Bảy mục chính}
+\label{app:datasheet-gebru}
+
+\noindent\textbf{1. Motivation.}
+\textit{For what purpose was the dataset created?}
+Được tạo để hỗ trợ nghiên cứu dự báo tiêu thụ điện năng công nghiệp và phát hiện bất thường dựa trên vật lý.
+Nhóm tác giả: DS108, Trường ĐH Công nghệ Thông tin, ĐHQG-HCM.
+Không có nguồn tài trợ bên ngoài.
+Đây là methodological dataset, không chứa PII.
+
+\noindent\textbf{2. Composition.}
+\textit{What do the instances represent?}
+Mỗi dòng là một mốc đo 15 phút gồm điện năng, khí tượng, đặc trưng kỹ thuật đa miền (thờ gian, tần số, vật lý), và nhãn bất thường.
+Tổng cộng 35.040 mẫu × 64 cột, bao gồm 3 nhãn bất thường nhị phân kèm confidence score.
+Dữ liệu gốc không có missing; các cột lag và DWT có NaN ở đầu chuỗi (hợp lệ về mặt thuật toán).
+\textit{Recommended split:} chia theo thờ gian (80\% đầu huấn luyện, 20\% cuối kiểm tra).
+CO$_2$ có độ phân giải thấp (8 giá trị khác biệt); PF gốc báo cáo dạng \%, đã chuẩn hóa về hệ số.
+
+\noindent\textbf{3. Collection Process.}
+\textit{How was the data acquired?}
+Điện năng từ UCI Repository; khí tượng từ Open-Meteo Historical API (34.975\textdegree{}N, 127.589\textdegree{}E) với retry + rate limiting.
+Không chứa PII; không cần ethical review.
+
+\noindent\textbf{4. Preprocessing.}
+\textit{Was any preprocessing done?}
+Có. Pipeline 7 bước: cleaning (loại trùng, nội suy, scale PF), weather integration (resample 1h$\rightarrow$15min, engineer 7 đặc trưng), time-domain FE (lag, rolling, cyclical encoding), DWT wavelet (db4-L3, cửa sổ 64), physical-domain FE ($S$, $\varphi$), anomaly labeling (IEEE~519 / ISO~50001), và GAN augmentation (tùy chọn).
+49 unit tests đảm bảo tính đúng đắn.
+Zero data leakage: rolling `center=False`, lag `shift$>$0`, weather merge không `bfill`.
+Dữ liệu thô được lưu trong `data/bronze/`; đã xử lý trong `data/gold/`.
+
+\noindent\textbf{5. Uses.}
+\textit{What tasks could the dataset be used for?}
+Phù hợp cho: dự báo tải điện ngắn hạn (STLF), phân loại chế độ vận hành, phát hiện bất thường không giám sát, tối ưu lịch bảo trì.
+\textbf{Không nên} dùng cho quyết định pháp lý hoặc hệ thống SCADA real-time mà không qua thử nghiệm an toàn.
+Nhãn bất thường dựa trên ngưỡng vật lý cố định; có thể cần điều chỉnh cho nhà máy khác.
+
+\noindent\textbf{6. Distribution.}
+\textit{How will the dataset be distributed?}
+Dự kiến phát hành qua Kaggle và Zenodo sau khi hoàn thiện báo cáo (Q3/2026).
+Kèm theo: CSV + CODEBOOK.csv + notebook minh họa.
+License: UCI (gốc) + MIT (đặc trưng kỹ thuật).
+
+\noindent\textbf{7. Maintenance.}
+\textit{Who is supporting the dataset?}
+Nhóm DS108 duy trì qua GitHub.
+Không cập nhật định kỳ; có thể mở rộng thêm năm 2019+ nếu có dữ liệu.
+Cộng đồng có thể fork và đóng góp qua Pull Request.

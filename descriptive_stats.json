@@ -1,0 +1,51 @@
+{
+  "Usage_kWh": {
+    "mean": 27.386892408675802,
+    "std": 33.44437970801512,
+    "min": 0.0,
+    "max": 157.18,
+    "nunique": 3343
+  },
+  "Lagging_Current_Reactive.Power_kVarh": {
+    "mean": 13.035383561643835,
+    "std": 16.305999973081924,
+    "min": 0.0,
+    "max": 96.91,
+    "nunique": 1954
+  },
+  "Leading_Current_Reactive_Power_kVarh": {
+    "mean": 3.8709486301369855,
+    "std": 7.4244627531036445,
+    "min": 0.0,
+    "max": 27.76,
+    "nunique": 768
+  },
+  "CO2(tCO2)": {
+    "mean": 0.011524257990867582,
+    "std": 0.016150821534429337,
+    "min": 0.0,
+    "max": 0.07,
+    "nunique": 8
+  },
+  "Lagging_Current_Power_Factor": {
+    "mean": 0.8057805622146119,
+    "std": 0.1892132226781741,
+    "min": 0.0,
+    "max": 1.0,
+    "nunique": 5079
+  },
+  "Leading_Current_Power_Factor": {
+    "mean": 0.843678698630137,
+    "std": 0.3045653515758771,
+    "min": 0.0,
+    "max": 1.0,
+    "nunique": 3366
+  },
+  "NSM": {
+    "mean": 42750.0,
+    "std": 24940.534316748486,
+    "min": 0.0,
+    "max": 85500.0,
+    "nunique": 96
+  }
+}

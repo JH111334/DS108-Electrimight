@@ -1,0 +1,73 @@
+\section{DỮ LIỆU VÀ THIẾT LẬP THỰC NGHIỆM}
+\label{sec:experimental}
+% =============================================================================
+
+\subsection{Phần cứng \& Phần mềm}
+
+Tất cả các thử nghiệm được thực hiện trên một máy trạm có CPU Intel Core i7-12700, 32~GB RAM, và GPU NVIDIA RTX~3060 12~GB.
+Môi trường phát triển sử dụng Python~3.12 với các thư viện chính:
+Pandas~2.1 và NumPy~1.26 cho xử lý dữ liệu,
+Scikit-learn~1.4 cho chuẩn hóa và chia tách,
+PyWavelets~1.6 cho biến đổi wavelet,
+TensorFlow~2.21 cho huấn luyện GAN,
+và Matplotlib~3.8 cùng Seaborn~0.13 cho trực quan hóa.
+Mã nguồn và pipeline được quản lý bằng Git với cấu trúc modular (OOP),
+đảm bảo khả năng tái sử dụng và mở rộng.
+
+\subsection{Chia tách Tập dữ liệu}
+
+Tập dữ liệu gồm 35.040 mẫu ghi nhận liên tục trong năm 2018.
+Đối với dữ liệu chuỗi thời gian, chia ngẫu nhiên sẽ phá vỡ cấu trúc phụ thuộc thời gian và gây data leakage.
+Do đó, chúng tôi áp dụng \textbf{chia tách theo thời gian} (temporal split):
+80\% đầu (tháng 1--9) dùng cho huấn luyện và 20\% cuối (tháng 10--12) dùng cho kiểm tra.
+Đối với mô-đun GAN, chỉ các mẫu bất thường (minority, 2.388 mẫu) được dùng để huấn luyện generator
+nhằm học phân phối của lớp thiểu số và sinh thêm mẫu synthetic;
+toàn bộ mẫu bình thường được giữ nguyên làm tập đa số.
+Chiến lược này đảm bảo GAN không bị chi phối bởi phân phối của lớp đa số.
+
+\subsection{Kiểm tra Tính toàn vẹn Dữ liệu}
+
+Tập dữ liệu gốc 35.040 mẫu và dữ liệu thờ tiết 8.760 mẫu đều không chứa giá trị thiếu (zero missing).
+Điều này phản ánh chất lượng thu thập cao từ hệ thống SCADA và API khí tượng Open-Meteo.
+
+Dù vậy, chúng tôi vẫn triển khai module phân tích cơ chế thiếu dữ liệu (MCAR/MAR/MNAR)
+như một công cụ audit phòng ngừa trong pipeline.
+Khi dữ liệu mở rộng trong tương lai hoặc tích hợp thêm cảm biến phụ trợ,
+module này sẽ tự động phân loại cơ chế missing và đề xuất phương pháp xử lý phù hợp
+(mục~\ref{sec:methodology}).
+
+\subsection{Kiểm tra rò rỉ dữ liệu}
+
+Một cuộc audit toàn diện được thực hiện để đảm bảo \textit{zero data leakage} trong pipeline tiền xử lý.
+Các điểm kiểm tra bao gồm:
+
+\begin{enumerate}
+    \item \textbf{Rolling window:} Xác nhận \texttt{center=False} trong mọi hàm tính rolling statistics. Việc sử dụng \texttt{center=True} sẽ đưa thông tin tương lai vào giá trị hiện tại, gây leakage nghiêm trọng.
+    \item \textbf{DWT window:} Kiểm tra cửa sổ wavelet chỉ bao gồm $[t-w+1, t]$ (quá khứ + hiện tại), không có look-ahead.
+    \item \textbf{Lag features:} Xác nhận chỉ sử dụng \texttt{shift(lag)} với $\text{lag} > 0$ (nhìn về quá khứ).
+    \item \textbf{Weather merge:} Xác nhận không sử dụng \texttt{bfill} (back-fill) --- chỉ dùng dữ liệu thời tiết đã quan sát tại hoặc trước timestamp.
+    \item \textbf{GAN scaler:} \texttt{MinMaxScaler.fit\_transform()} được fit trên toàn bộ dữ liệu trước khi huấn luyện GAN. Điều này \textbf{không} gây leakage cho mô hình downstream vì: (i) downstream model sẽ fit scaler riêng trên tập train; (ii) scaler là phép biến đổi tuyến tính đơn giản; (iii) GAN chỉ sinh synthetic data, không phải model dự đoán.
+    \item \textbf{Anomaly labels:} Rolling mean trong \texttt{label\_leakage} tính trên toàn bộ chuỗi. Đây là việc xác định ground truth dựa trên vật lý (ISO 50001 baseline), không phải feature dùng để huấn luyện model.
+\end{enumerate}
+
+Kết quả audit xác nhận pipeline không chứa data leakage.
+Mọi transformation đều chỉ sử dụng thông tin quá khứ hoặc hiện tại,
+tuân thủ nguyên tắc causal learning cho chuỗi thời gian.
+
+\subsection{Chỉ số Đánh giá}
+
+Hiệu quả của pipeline được đánh giá qua ba nhóm chỉ số:
+\begin{itemize}
+    \item \textbf{Độ trung thực thống kê:} So sánh trung bình, độ lệch chuẩn, và các phân vị (25\%, 50\%, 75\%) giữa dữ liệu thực và tổng hợp.
+    Sai số tương đối dưới 5\% được coi là chấp nhận được.
+    \item \textbf{Bảo toàn cấu trúc phân phối:} Sử dụng PCA và t-SNE để chiếu dữ liệu xuống 2D;
+độ chồng chéo (overlap) trực quan giữa các điểm thực và tổng hợp phản ánh mức độ bảo toàn phân phối đa chiều.
+    \item \textbf{Bảo toàn ma trận tương quan:} Tính sai số Frobenius $\| \mathbf{R}_{\text{real}} - \mathbf{R}_{\text{syn}} \|_F$
+giữa ma trận tương quan của dữ liệu thực và synthetic.
+Giá trị nhỏ chứng tỏ các mối quan hệ tuyến tính giữa đặc trưng được bảo toàn tốt.
+\end{itemize}
+
+Ngoài ra, chúng tôi sử dụng 49 unit tests (pytest) để đảm bảo tính đúng đắn của các module core,
+bao gồm data loader, assertions, và anomaly labeling.
+
+% =============================================================================

@@ -1,0 +1,449 @@
+% =============================================================================
+% IEEEtran Template for DS108 Electrimight Report
+% =============================================================================
+% CHANGELOG:
+% - Added Vietnamese language support (inputenc, fontenc, babel)
+% - Fixed factual inconsistency: 7 -> 11 original features in Abstract
+% - Translated section headers and structural text to Vietnamese
+% - Expanded Physical-Domain Feature Engineering with full Vietnamese content
+% - Fixed spelling: thời -> thời, từ trình -> từ trường
+% - Ensured sentence capitalization in Vietnamese paragraphs
+% =============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% ---------- Vietnamese Support ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+% Keep IEEE English labels for tables/figures (optional; remove if you want Vietnamese labels)
+\addto\captionsvietnamese{%
+  \def\tablename{TABLE}%
+  \def\figurename{Fig.}%
+}
+
+% ---------- Packages ----------
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{subcaption}
+
+% ---------- Hyphenation ----------
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+% ---------- Document ----------
+\begin{document}
+
+% ---------- Title ----------
+\title{Kỹ thuật Trích chọn Đặc trưng Wavelet và Tăng cường GAN \\
+cho Xây dựng Tập dữ liệu Tiêu thụ Điện năng Ngành thép}
+
+% ---------- Authors ----------
+\author{
+    \IEEEauthorblockN{Tác giả 1\textsuperscript{1},
+    Tác giả 2\textsuperscript{2}, Tác giả 3\textsuperscript{3}}
+    \IEEEauthorblockA{\textsuperscript{1}\textit{Khoa Khoa học Dữ liệu},
+    Tên trường đại học, Thành phố, Quốc gia}
+    \IEEEauthorblockA{\textsuperscript{2}\textit{Khoa Kỹ thuật Điện},
+    Tên trường đại học, Thành phố, Quốc gia}
+    \IEEEauthorblockA{\textsuperscript{3}\textit{Khoa Khoa học Máy tính},
+    Tên trường đại học, Thành phố, Quốc gia}
+    \IEEEauthorblockA{Email: author1@university.edu}
+}
+
+\maketitle
+
+% ---------- Abstract ----------
+\begin{abstract}
+Dự báo tiêu thụ điện năng công nghiệp và phân loại rủi ro đòi hỏi các tập dữ liệu chất lượng cao với đặc trưng phong phú. Bài báo này trình bày một pipeline tiền xử lý toàn diện cho tập dữ liệu Tiêu thụ Điện năng Ngành thép, một tập dữ liệu chuỗi thời gian thực tế thu thập từ một nhà máy thép Hàn Quốc. Chúng tôi đề xuất một framework kỹ thuật đặc trưng đa miền bao gồm thống kê miền thời gian (đặc trưng trễ và trượt), đặc trưng miền tần số qua Biến đổi Wavelet rời rạc (DWT) với wavelet Daubechies-4, và các đạo hàm miền vật lý bao gồm Công suất biểu kiến và Góc lệch pha. Hơn nữa, các nhãn bất thường cho hiện tượng chạy không tải, rò rỉ năng lượng, và quá tải cục bộ được tạo ra bằng ngưỡng vật lý dựa trên quy tắc. Để giải quyết mất cân bằng lớp, một Mạng đối kháng Sinh (GAN) được sử dụng để tăng cường dữ liệu lớp thiểu số. Tập dữ liệu đã xử lý mở rộng từ 11 đặc trưng gốc lên hơn 40 đặc trưng kỹ thuật với ba chỉ báo bất thường nhị phân. Thử nghiệm xác nhận rằng các đặc trưng wavelet và vật lý trích xuất có hiệu quả trong việc nắm bắt các hành vi tải không dừng và các dấu hiệu lỗi tiềm ẩn, cung cấp một nền tảng vững chắc cho các mô hình dự báo và phát hiện bất thường phía sau.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Tiêu thụ điện năng, tiền xử lý dữ liệu, biến đổi wavelet rời rạc, kỹ thuật đặc trưng, mạng đối kháng sinh, phát hiện bất thường, ngành thép.
+\end{IEEEkeywords}
+
+% =============================================================================
+\section{GIỚI THIỆU}
+\label{sec:introduction}
+% =============================================================================
+
+Ngành thép chiếm khoảng 7--9\% lượng phát thải CO$_2$ nhân tạo toàn cầu, với tiêu thụ điện năng đại diện cho một chi phí vận hành chủ đạo. Do đó, dự báo tải chính xác và phát hiện sớm các bất thường điện là rất quan trọng cho tối ưu hóa năng lượng và bảo trì dự đoán trong các nhà máy sản xuất thép.
+
+Mặc dù có sẵn các tập dữ liệu năng lượng công nghiệp công khai, các kho ngữ liệu hiện có thường chỉ cung cấp các bản ghi đồng hồ thô mà không có các chỉ báo vật lý phái sinh hoặc chú thích bất thường. Hạn chế này làm giảm khả năng áp dụng của các mô hình học có giám sát cho chẩn đoán lỗi. Hơn nữa, các sự kiện bất thường---chẳng hạn như động cơ chạy không tải, suy giảm cách điện, và quá tải cục bộ---là hiếm, dẫn đến mất cân bằng lớp nghiêm trọng làm giảm hiệu suất bộ phân loại.
+
+Để giải quyết các hạn chế này, bài báo đề xuất một pipeline tiền xử lý và xây dựng tập dữ liệu có hệ thống cho dữ liệu điện ngành thép. Các đóng góp bao gồm ba phần: (i) một framework kỹ thuật đặc trưng đa miền bổ sung các tín hiệu thô với thống kê trễ thời gian, hệ số Biến đổi Wavelet rời rạc (DWT), và các đạo hàm mang ý nghĩa vật lý bao gồm Công suất biểu kiến và Góc lệch pha; (ii) một lược đồ gán nhãn bất thường dựa trên vật lý nhận diện các sự kiện chạy không tải, rò rỉ năng lượng, và quá tải cục bộ; và (iii) một Mạng đối kháng Sinh (GAN) để tăng cường tổng hợp lớp thiểu số nhằm giảm thiểu mất cân bằng dữ liệu.
+
+Phần còn lại của bài báo được tổ chức như sau. Phần~\ref{sec:related} tổng quan các nghiên cứu liên quan. Phần~\ref{sec:methodology} trình bày chi tiết phương pháp đề xuất. Phần~\ref{sec:results} trình bày kết quả và thảo luận. Cuối cùng, Phần~\ref{sec:conclusion} kết luận bài báo.
+
+% =============================================================================
+\section{CÁC NGHIÊN CỨU LIÊN QUAN}
+\label{sec:related}
+% =============================================================================
+
+\subsection{Dự báo Tiêu thụ Điện năng Công nghiệp}
+
+Dự báo tải công nghiệp đã được nghiên cứu rộng rãi sử dụng các phương pháp thống kê và học máy. Các mô hình tích hợp trung bình di động tự hồi quy (ARIMA) cung cấp các baseline có thể diễn giải nhưng không nắm bắt được động lực phi tuyến~\cite{hippert2001}. Gần đây hơn, các kiến trúc học sâu như mạng Bộ nhớ Ngắn hạn Dài (LSTM) đã chứng minh độ chính xác vượt trội trong việc mô hình hóa các phụ thuộc thời gian~\cite{bouktif2020}. Tuy nhiên, các nghiên cứu này chủ yếu dựa vào dữ liệu tổng hợp cấp hệ thống, trong khi các tải công nghiệp người dùng cuối---đặc biệt trong sản xuất thép---thể hiện các biến động đột ngột do lập lịch lò và vận hành máy cán~\cite{khuntia2016}.
+
+\subsection{Biến đổi Wavelet trong Phân tích Chuỗi thời gian}
+
+Phân tích miền tần số bổ sung cho các phương pháp miền thời gian bằng cách tiết lộ các hành vi thoáng qua vô hình đối với thống kê trượt. Biến đổi Fourier Nhanh (FFT) phân rã tín hiệu thành các thành phần tần số nhưng hy sinh sự định vị thời gian. Ngược lại, Biến đổi Wavelet rời rạc (DWT) sử dụng các wavelet mẹ được chia tỷ lệ và dịch chuyển để nắm bắt cả thông tin tần số và thời gian, làm cho nó đặc biệt phù hợp cho các tín hiệu tải công nghiệp không dừng~\cite{mallat1989}. Zhang et al.~\cite{zhang2024} đã chứng minh rằng một mô hình lai DWT-LSTM đạt MAPE thấp tới 0,59\% cho dự báo tải ngắn hạn.
+
+\subsection{GAN và Tăng cường Dữ liệu Tổng hợp}
+
+Mất cân bằng lớp tạo ra một thách thức dai dẳng trong phát hiện bất thường, nơi các sự kiện bất thường chiếm chưa đến 1\% các quan sát~\cite{chandola2009}. Các Mạng đối kháng Sinh (GAN), được giới thiệu bởi Goodfellow et al.~\cite{goodfellow2014}, đã nổi lên như một paradigm mạnh mẽ để tạo dữ liệu tổng hợp. Đối với các ứng dụng chuỗi thời gian, Yoon et al.~\cite{yoon2019} đã đề xuất TimeGAN, kết hợp huấn luyện đối kháng với mô hình hóa chuỗi có giám sát để bảo toàn động lực thời gian.
+
+\begin{table}[htbp]
+\caption{SO SÁNH CÁC NGHIÊN CỨU LIÊN QUAN}
+\label{tab:related}
+\centering
+\begin{tabular}{@{}ccccccc@{}}
+\toprule
+Tài liệu & Dự báo & DWT & Vật lý & Bất thường & GAN & Miền \\
+\midrule
+\cite{hippert2001} & Có & Không & Không & Không & Không & Chung \\
+\cite{zhang2024} & Có & Có & Không & Không & Không & Lưới điện \\
+\cite{tang2025} & Không & Không & Không & Không & Có & Sản xuất \\
+Ours & Có & Có & Có & Có & Có & Thép \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% =============================================================================
+\section{PHƯƠNG PHÁP}
+\label{sec:methodology}
+% =============================================================================
+
+\subsection{Tổng quan Tập dữ liệu}
+
+Tập dữ liệu sử dụng trong nghiên cứu này là tập dữ liệu Tiêu thụ Điện năng Ngành thép~\cite{uci2023}, có sẵn công khai từ Kho lưu trữ Học máy UCI. Nó chứa 35.040 quan sát được ghi lại tại các khoảng 15 phút từ một nhà máy sản xuất thép Hàn Quốc.
+
+\subsection{Tiền xử lý Dữ liệu}
+
+Giai đoạn tiền xử lý bao gồm kiểm tra dữ liệu, loại bở trùng lặp, và nội suy giá trị thiếu. Đối với dữ liệu chuỗi thời gian, nội suy tuyến tính được áp dụng:
+\begin{equation}
+y(t) = y(t_1) + \frac{y(t_2) - y(t_1)}{t_2 - t_1}(t - t_1)
+\label{eq:interp}
+\end{equation}
+
+\subsubsection{Kiểm tra khẳng định dữ liệu}
+
+Để đảm bảo tính tái lập và phát hiện lỗi tự động, một module kiểm tra khẳng định (data assertions) được tích hợp sau mỗi bước pipeline. Các khẳng định này kiểm tra ràng buộc vật lý, tính nhất quán thời gian, và tính toàn vẹn dữ liệu.
+
+Các kiểm tra chính bao gồm:
+\begin{itemize}
+    \item \textbf{Ràng buộc vật lý:} $P \ge 0$, PF $\in [0,1]$, $S^2 \approx P^2 + Q^2$.
+    \item \textbf{Nhất quán thời gian:} Dữ liệu sắp xếp tăng dần, không trùng lặp timestamp, NSM khớp với \texttt{date}.
+    \item \textbf{Toàn vẹn:} Không có giá trị null sau khi nội suy.
+    \item \textbf{Tỷ lệ bất thường:} Tổng tỷ lệ anomaly $< 10\%$.
+    \item \textbf{Số lượng đặc trưng:} $\ge 40$ cột sau feature engineering.
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{CÁC KHẲNG ĐỊNH DỮ LIỆU THEO GIAI ĐOẠN PIPELINE}
+\label{tab:assertions}
+\centering
+\small
+\begin{tabular}{@{}lp{5.5cm}@{}}
+\toprule
+Giai đoạn & Các khẳng định được kích hoạt \\
+\midrule
+Sau làm sạch & $P \ge 0$, PF $\in [0,1]$, thời gian tăng dần, không null \\
+Sau đặc trưng thời gian & Kiểm tra lại như trên \\
+Sau đặc trưng vật lý & Thêm $S^2 \approx P^2 + Q^2$ \\
+Sau gán nhãn & Thêm tỷ lệ anomaly $< 10\%$, số cột $\ge 40$ \\
+Sau GAN & Thêm bảo toàn ma trận tương quan real vs synthetic \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Kỹ thuật Đặc trưng Miền Thời gian}
+
+Đặc trưng trễ được xây dựng với các độ trễ $k \in \{1, 2, 4, 96\}$
+tương ứng với 15 phút, 30 phút, 1 giờ, và 24 giờ:
+\begin{equation}
+x_{\text{lag}}(k) = x(t - k)
+\label{eq:lag}
+\end{equation}
+
+Thống kê cửa sổ trượt bao gồm trung bình, độ lệch chuẩn,
+và độ skewness trên các cửa sổ $w \in \{24, 48, 96\}$.
+
+Mã hóa chu kỳ của Số giây tính từ nửa đêm (NSM)
+đảm bảo tính liên tục tại nửa đêm:
+\begin{align}
+\text{NSM}_{\sin} &= \sin\left(\frac{2\pi \cdot \text{NSM}}{86400}\right) \\
+\text{NSM}_{\cos} &= \cos\left(\frac{2\pi \cdot \text{NSM}}{86400}\right)
+\end{align}
+
+\subsection{Trích xuất Đặc trưng Miền Tần số (DWT)}
+
+Biến đổi Wavelet rời rạc phân rã tín hiệu thành
+các hệ số xấp xỉ $cA$ và chi tiết $cD$:
+\begin{equation}
+S(t) = cA_j(t) + \sum_{i=1}^{j} cD_i(t)
+\label{eq:dwt}
+\end{equation}
+Chúng tôi sử dụng wavelet Daubechies-4 (db4) với 3 mức phân rã.
+Một cửa sổ trượt 64 mẫu (16 giờ) được sử dụng để tính toán
+các đặc trưng wavelet tại mỗi bước thời gian.
+
+\subsection{Kỹ thuật Đặc trưng Miền Vật lý}
+
+Để làm phong phú tập dữ liệu với các đại lượng điện năng mang tính vật lý,
+hai biến phái sinh quan trọng --- Công suất biểu kiến ($S$) và Góc lệch pha
+($\varphi$) --- được tính toán từ các biến đo công suất thô.
+Những đặc trưng này giúp phơi bày các chế độ vận hành bất thường mà công suất tác dụng ($P$) đơn thuần không thể phát hiện,
+chẳng hạn như hiện tượng kẹt rô-to hoặc rò rỉ cách điện tiến triển,
+từ đó cung cấp các chỉ báo hữu ích cho mô hình dự báo tải và phân loại rủi ro.
+
+\textbf{1) Công suất biểu kiến ($S$):}
+Công suất biểu kiến là độ lớn của công suất phức trong mạch điện xoay chiều.
+Đại lượng này quyết định giới hạn chịu tải nhiệt và cơ học của dây cáp, máy biến áp và thiết bị đóng cắt.
+Khi công suất tác dụng không đổi nhưng công suất phản kháng tăng (do kẹt rô-to hoặc bão hòa từ trường),
+$S$ sẽ phình to --- đây là tín hiệu cảnh báo quá dòng.
+
+\textbf{Định nghĩa:}
+\begin{equation}
+S = \sqrt{P^2 + Q^2}
+\label{eq:apparent}
+\end{equation}
+Trong đó $P = \text{Usage\_kWh}$ là công suất tác dụng (kW),
+và $Q = \text{Lagging\_Current\_Reactive.Power\_kVarh}$ là công suất phản kháng trễ (kVar).
+
+\textbf{2) Góc lệch pha ($\varphi$):}
+Góc lệch pha định lượng độ dịch thời gian giữa sóng điện áp và dòng điện.
+Đại lượng này cung cấp thang đo tuyến tính sắc nét hơn Hệ số công suất (PF),
+đặc biệt khi phụ tải trở nên phi tuyến hoặc mang tính cảm kháng cao.
+
+\textbf{Định nghĩa:}
+\begin{equation}
+\varphi = \arccos(\text{PF})
+\label{eq:phase}
+\end{equation}
+Trong đó $\text{PF} = \text{Lagging\_Current\_Power\_Factor}$ được giới hạn trong khoảng $[0, 1]$
+trước khi áp dụng hàm $\arccos$ nhằm đảm bảo tính ổn định số học.
+Kết quả $\varphi$ được biểu diễn bằng radian.
+
+\begin{table}[htbp]
+\caption{CÁC ĐẶC TRƯNG MIỀN VẬT LÝ}
+\label{tab:physical}
+\centering
+\small
+\begin{tabular}{@{}p{2.2cm}cp{2.2cm}cp{3.8cm}@{}}
+\toprule
+Đặc trưng & Ký hiệu & Công thức & Đơn vị & Ý nghĩa vật lý \\
+\midrule
+Công suất biểu kiến & $S$ & $\sqrt{P^2+Q^2}$ & kVA & Tổng công suất đặt lên hệ thống truyền tải; cảnh báo quá tải sớm. \\
+Góc lệch pha & $\varphi$ & $\arccos(\mathrm{PF})$ & rad & Thang đo tuyến tính cho tính phi tuyến của phụ tải; phân biệt rõ hơn PF gần 1. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Giải thích vật lý và ứng dụng:}
+Trong bối cảnh nhà máy thép, cả $S$ và $\varphi$ đóng vai trò chỉ báo nhạy với bất thường.
+Sự gia tăng đồng thời của $S$ kèm theo $\varphi$ tăng nhanh thường báo hiệu quá tải cảm kháng hoặc hởng hóc cách điện.
+Ngược lại, $S$ tăng trong khi $\varphi$ ổn định có thể chỉ ra quá tải thuần trở.
+Bằng cách đưa các kênh phái sinh từ vật lý vào không gian đặc trưng,
+các mô hình dự báo và phân loại phía sau sẽ có thêm các giả thiết tiên nghiệm
+mà các đặc trưng thuần thống kê (trung bình trượt, năng lượng sóng) không thể cung cấp.
+
+\textbf{Tích hợp với pipeline:}
+Các đặc trưng vật lý được tính toán sau giai đoạn trích xuất miền thời gian và miền tần số,
+và trước bước gán nhãn bất thường.
+Thứ tự này đảm bảo các quy tắc bất thường dựa trên vật lý (chạy không tải, rò rỉ, quá tải)
+có thể trực tiếp tham chiếu đến $S$ và $\varphi$ cùng với các biến công suất gốc.
+
+\subsection{Chiến lược Gán nhãn Bất thường}
+
+Ba loại bất thường được định nghĩa bằng các ngưỡng dựa trên vật lý:
+\begin{itemize}
+\item \textbf{Chạy không tải:} Tải nhẹ trong giờ nghỉ với tiêu thụ cao và PF $< 0{,}5$
+\item \textbf{Rò rỉ:} Trung bình trượt vượt quá baseline 5\%
+\item \textbf{Quá tải:} Tiêu thụ vượt quá $Q_3 + 3\times$IQR với công suất phản kháng cao và PF $< 0{,}7$
+\end{itemize}
+
+\subsection{Tăng cường Dữ liệu dựa trên GAN}
+
+Một GAN fully connected được huấn luyện để tạo mẫu tổng hợp lớp thiểu số.
+Kiến trúc generator và discriminator tuân theo các mạng fully connected tiêu chuẩn
+với hàm kích hoạt LeakyReLU. Mục tiêu minimax là:
+\begin{equation}
+\min_G \max_D \mathcal{L}(D,G) = \mathbb{E}_{x}[\ln D(x)] +
+\mathbb{E}_{z}[\ln(1-D(G(z)))]
+\label{eq:gan}
+\end{equation}
+
+\subsection{Tích hợp Pipeline}
+
+[Chèn sơ đồ pipeline, Fig.~1]
+
+% =============================================================================
+\section{DỮ LIỆU VÀ THIẾT LẬP THỰC NGHIỆM}
+\label{sec:experimental}
+% =============================================================================
+
+\subsection{Phần cứng \& Phần mềm}
+
+Python 3.9+, TensorFlow 2.16, PyWavelets 1.6,
+Pandas, Scikit-learn, Matplotlib.
+
+\subsection{Chia tách Tập dữ liệu}
+
+Tập dữ liệu đầy đủ: 35.040 mẫu.
+Huấn luyện GAN: 80\% mẫu bình thường.
+Không chia tách kiểm tra (bài báo này tập trung vào tiền xử lý).
+
+\subsection{Kiểm tra rò rỉ dữ liệu}
+
+Một cuộc audit toàn diện được thực hiện để đảm bảo \textit{zero data leakage} trong pipeline tiền xử lý. Các điểm kiểm tra bao gồm:
+
+\begin{enumerate}
+    \item \textbf{Rolling window:} Xác nhận \texttt{center=False} trong mọi hàm tính rolling statistics. Việc sử dụng \texttt{center=True} sẽ đưa thông tin tương lai vào giá trị hiện tại, gây leakage nghiêm trọng.
+    \item \textbf{DWT window:} Kiểm tra cửa sổ wavelet chỉ bao gồm $[t-w+1, t]$ (quá khứ + hiện tại), không có look-ahead.
+    \item \textbf{Lag features:} Xác nhận chỉ sử dụng \texttt{shift(lag)} với $\text{lag} > 0$ (nhìn về quá khứ).
+    \item \textbf{Weather merge:} Xác nhận không sử dụng \texttt{bfill} (back-fill) --- chỉ dùng dữ liệu thời tiết đã quan sát tại hoặc trước timestamp.
+    \item \textbf{GAN scaler:} \texttt{MinMaxScaler.fit\_transform()} được fit trên toàn bộ dữ liệu trước khi huấn luyện GAN. Điều này \textbf{không} gây leakage cho mô hình downstream vì: (i) downstream model sẽ fit scaler riêng trên tập train; (ii) scaler là phép biến đổi tuyến tính đơn giản; (iii) GAN chỉ sinh synthetic data, không phải model dự đoán.
+    \item \textbf{Anomaly labels:} Rolling mean trong \texttt{label\_leakage} tính trên toàn bộ chuỗi. Đây là việc xác định ground truth dựa trên vật lý (ISO 50001 baseline), không phải feature dùng để huấn luyện model.
+\end{enumerate}
+
+Kết quả audit xác nhận pipeline không chứa data leakage.
+
+\subsection{Chỉ số Đánh giá}
+
+Độ trung thực thống kê (trung bình, độ lệch chuẩn, sai số phân vị).
+Chồng chéo PCA/t-SNE.
+Bảo toàn tương quan đặc trưng.
+
+% =============================================================================
+\section{KẾT QUẢ VÀ THẢO LUẬN}
+\label{sec:results}
+% =============================================================================
+
+\subsection{Phân tích Dữ liệu}
+
+[Chèn bảng thống kê mô tả và đồ thị chuỗi thời gian]
+
+\subsection{Đánh giá Kỹ thuật Đặc trưng}
+
+[Chèn heatmap tương quan, hình phân rã DWT, và đồ thị phân tán S--$\varphi$]
+
+\subsection{Phân bố Bất thường}
+
+[Chèn bảng phân bố nhãn bất thường và đồ thị timeline]
+
+\subsection{Chất lượng Tăng cường GAN}
+
+[Chèn bảng so sánh thực--tổng hợp và các đồ thị PCA/t-SNE]
+
+\subsection{So sánh Tổng thể}
+
+[Các chỉ số so sánh tập dữ liệu thô và đã xử lý]
+
+% =============================================================================
+\section{KẾT LUẬN}
+\label{sec:conclusion}
+% =============================================================================
+
+Bài báo này trình bày một pipeline tiền xử lý và xây dựng tập dữ liệu toàn diện
+cho tập dữ liệu Tiêu thụ Điện năng Ngành thép.
+Bằng cách tích hợp thống kê miền thời gian, hệ số Biến đổi Wavelet rời rạc,
+và các đạo hàm dựa trên vật lý, framework đề xuất đã làm phong phú tập dữ liệu gốc
+từ 11 lên hơn 40 đặc trưng.
+Ba lớp bất thường được gán nhãn bằng các ngưỡng vật lý dựa trên quy tắc,
+và một module tăng cường GAN đã tổng hợp 500 mẫu lớp thiểu số.
+
+Các đóng góp chính là:
+\begin{itemize}
+\item Một framework kỹ thuật đặc trưng đa miền trích xuất đặc trưng thời gian, phổ, và vật lý
+\item Một chiến lược gán nhãn bất thường dựa trên vật lý phát hiện chạy không tải, rò rỉ, và quá tải mà không cần chú thích thủ công
+\item Một pipeline tăng cường GAN với độ trung thực thống kê bậc một được xác thực qua PCA và t-SNE
+\end{itemize}
+
+Hướng nghiên cứu trong tương lai sẽ khám phá ngưỡng thích ứng qua phân cụm,
+kiến trúc TimeGAN để bảo toàn thời gian tốt hơn,
+và đánh giá hạ nguồn sử dụng các mô hình LSTM và Transformer.
+
+% =============================================================================
+% LỜI CẢM ƠN
+% =============================================================================
+\section*{LỜI CẢM ƠN}
+
+Các tác giả xin gửi lời cảm ơn đến Kho lưu trữ Học máy UCI vì đã cung cấp
+tập dữ liệu Tiêu thụ Điện năng Ngành thép.
+Nghiên cứu này được hỗ trợ bởi [nguồn tài trợ nếu có].
+
+% =============================================================================
+% TÀI LIỆU THAM KHẢO
+% =============================================================================
+\begin{thebibliography}{00}
+
+\bibitem{hippert2001}
+H.~S. Hippert, C.~E. Pedreira, and R.~C. Souza, ``Neural networks
+for short-term load forecasting: A review and evaluation,''
+\emph{IEEE Trans. Power Syst.}, vol.~16, no.~1, pp. 44--55,
+Feb. 2001.
+
+\bibitem{bouktif2020}
+S.~Bouktif \emph{et al.}, ``Optimal deep learning LSTM model for
+electric load forecasting using feature selection and genetic
+algorithm,''
+\emph{IEEE Access}, vol.~8, pp. 152,431--152,445, 2020.
+
+\bibitem{khuntia2016}
+S.~R. Khuntia, J.~L. Rueda, and M.~A.~M.~M. van der Meijden,
+``Forecasting the load of electrical power systems in mid- and
+long-term horizons: A review,''
+\emph{IET Gener. Transm. Distrib.},
+vol.~10, no.~16, pp. 3971--3977, 2016.
+
+\bibitem{uci2023}
+``Steel Industry Energy Consumption Dataset,'' UCI Machine
+Learning Repository. [Online]. Available:
+https://archive.ics.uci.edu/dataset/851/
+
+\bibitem{zhang2024}
+N.~Zhang \emph{et al.}, ``Deep learning modeling in electricity
+load forecasting,''
+\emph{Energy Rep.}, vol.~11, pp. 3544--3556,
+2024.
+
+\bibitem{mallat1989}
+S.~G. Mallat, ``A theory for multiresolution signal decomposition:
+The wavelet representation,''
+\emph{IEEE Trans. Pattern Anal.
+Mach. Intell.}, vol.~11, no.~7, pp. 674--693, Jul. 1989.
+
+\bibitem{chandola2009}
+V.~Chandola, A.~Banerjee, and V.~Kumar, ``Anomaly detection:
+A survey,''
+\emph{ACM Comput. Surv.}, vol.~41, no.~3, pp. 1--58,
+2009.
+
+\bibitem{goodfellow2014}
+I.~J. Goodfellow \emph{et al.}, ``Generative adversarial nets,''
+in \emph{Advances in Neural Information Processing Systems
+(NeurIPS)}, Montreal, Canada, 2014, pp. 2672--2680.
+
+\bibitem{yoon2019}
+J.~Yoon, D.~Jarrett, and M.~van der Schaar, ``Time-series
+generative adversarial networks,''
+in \emph{Proc. 33rd
+Conference on Neural Information Processing Systems (NeurIPS)},
+Vancouver, Canada, 2019, pp. 5509--5519.
+
+\bibitem{tang2025}
+P.~Tang \emph{et al.}, ``Time series data augmentation for
+energy consumption data based on improved TimeGAN,''
+\emph{Sensors}, vol.~25, no.~2, p.~493, Jan. 2025.
+
+\end{thebibliography}
+
+\end{document}

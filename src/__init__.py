@@ -2,44 +2,58 @@
 DS108-Electrimight Source Package
 
 Package chứa các module cho dự án Steel Industry Energy Consumption.
-Pipeline tiền xử lý Data-Centric AI theo 7 bước:
-  1. data_loader      — Tải, kiểm tra, làm sạch dữ liệu thô
-  2. time_features    — Đặc trưng miền thời gian (lag, rolling, trig)
-  3. wavelet_features — Đặc trưng miền tần số (DWT)
-  4. physical_features— Đặc trưng vật lý điện năng (S, φ)
-  5. anomaly_labels   — Gán nhãn bất thường (Idling, Leakage, Overload)
-  6. gan_augmentation — Tăng cường dữ liệu GAN (skeleton)
-  7. pipeline         — Pipeline đầu-cuối tích hợp tất cả bước
+Pipeline tiền xử lý Data-Centric AI theo kiến trúc Medallion (Bronze / Silver / Gold):
+  Bronze — data_loader, weather_loader, data_quality_audit
+  Silver — time_features, wavelet_features, physical_features, anomaly_labels
+  Gold   — pipeline, gan_augmentation, generate_figures, misc
+
+Shared — utils, data_assertions, missingness_analysis, leakage_audit
 
 Lưu ý: Một số module (wavelet_features, misc) yêu cầu thư viện nặng
 (pywt, tensorflow). Sử dụng import trực tiếp khi cần:
-    from src.wavelet_features import rolling_wavelet_features
+    from src.silver.wavelet_features import rolling_wavelet_features
 """
 
 __version__ = "1.0.0"
 __author__ = "DS108 Team"
 
-# Core modules — luôn importable
+# Core shared modules — luôn importable
 from . import utils
-from . import data_loader
-from . import time_features
-from . import physical_features
-from . import anomaly_labels
-from . import gan_augmentation
+from . import data_assertions
+from . import missingness_analysis
+from . import leakage_audit
+
+# Bronze layer
+from .bronze import data_loader
+from .bronze import weather_loader
+from .bronze import data_quality_audit
+
+# Silver layer
+from .silver import time_features
+from .silver import physical_features
+from .silver import anomaly_labels
+
+# Gold layer
+from .gold import gan_augmentation
 
 # Heavy-dependency modules — import khi cần
-# from . import wavelet_features  # Requires pywt
-# from . import pipeline          # Requires pywt (via wavelet_features)
-# from . import misc              # Requires tensorflow
+# from src.silver import wavelet_features  # Requires pywt
+# from src.gold import pipeline            # Requires pywt
+# from src.gold import misc                # Requires tensorflow
 
 __all__ = [
-    'utils',
-    'data_loader',
-    'time_features',
-    'physical_features',
-    'anomaly_labels',
-    'gan_augmentation',
-    'wavelet_features',
-    'pipeline',
-    'misc',
+    "utils",
+    "data_assertions",
+    "missingness_analysis",
+    "leakage_audit",
+    "data_loader",
+    "weather_loader",
+    "data_quality_audit",
+    "time_features",
+    "physical_features",
+    "anomaly_labels",
+    "gan_augmentation",
+    "wavelet_features",
+    "pipeline",
+    "misc",
 ]

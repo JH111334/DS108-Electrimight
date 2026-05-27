@@ -1,0 +1,14 @@
+{
+  "final_shape": [
+    35040,
+    64
+  ],
+  "n_idling": 10,
+  "n_leakage": 2336,
+  "n_overload": 48,
+  "n_any_anomaly": 2388,
+  "idling_pct": 0.028538812785388126,
+  "leakage_pct": 6.666666666666667,
+  "overload_pct": 0.136986301369863,
+  "any_anomaly_pct": 6.815068493150685
+}
