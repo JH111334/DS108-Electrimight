@@ -1,65 +1,65 @@
 feature_name,group,description_vi,description_en,dtype,unit,formula_or_source,range_or_notes
-date,A. Temporal Identifier,Thời điểm ghi nhận mẫu,Timestamp of the observation,datetime,—,—,15-minute resolution; 2018-01-01 00:00 to 2018-12-31 23:45
-Usage_kWh,B. Raw Electrical,Công suất tác dụng theo chu kỳ 15 phút,Active energy consumption per interval,float64,kWh,SCADA/meter measurement,"[0, 157.18]; target variable for forecasting"
-Lagging_Current_Reactive.Power_kVarh,B. Raw Electrical,Công suất phản kháng trễ Q_lag,Lagging reactive power,float64,kVArh,SCADA/meter measurement,"[0, 96.91]; dominant inductive-load signal"
-Leading_Current_Reactive_Power_kVarh,B. Raw Electrical,Công suất phản kháng sớm Q_lead,Leading reactive power,float64,kVArh,SCADA/meter measurement,"[0, 27.76]; many zero values"
-CO2(tCO2),B. Raw Electrical,Phát thải CO2 tương đương,Equivalent CO2 emissions,float64,tCO2,Emission factor times energy,"[0, 0.07]; derived proxy not independent sensor"
-Lagging_Current_Power_Factor,B. Raw Electrical,Hệ số công suất trễ PF_lag,Lagging power factor,float64,—,"Scaled from raw percent to [0,1]","[0, 1]"
-Leading_Current_Power_Factor,B. Raw Electrical,Hệ số công suất sớm PF_lead,Leading power factor,float64,—,"Scaled from raw percent to [0,1]","[0, 1]"
-NSM,C. Calendar and Operational,Số giây từ nửa đêm,Number of seconds from midnight,int64,s,Derived from timestamp,"[0, 85500]; 96 values/day"
-WeekStatus,C. Calendar and Operational,Loại ngày trong tuần/cuối tuần,Weekday or weekend,object,—,Original dataset,"{Weekday, Weekend}"
-Day_of_week,C. Calendar and Operational,Thứ trong tuần,Day of week,object,—,Original dataset,"{Monday,...,Sunday}"
-Load_Type,C. Calendar and Operational,Chế độ tải vận hành,Operational load classification,object,—,Original dataset,"{Light_Load, Medium_Load, Maximum_Load}"
-temperature_2m,D. Weather Raw,Nhiệt độ không khí 2m,Air temperature at 2m,float64,degC,Open-Meteo hourly data resampled to 15 minutes,"[-10.6, 35.7]"
-precipitation,D. Weather Raw,Lượng mưa,Precipitation,float64,mm,Open-Meteo hourly data resampled to 15 minutes,"[0, 44.0]"
-relative_humidity_2m,D. Weather Raw,Độ ẩm tương đối,Relative humidity,float64,percent,Open-Meteo hourly data resampled to 15 minutes,"[6, 100]"
-windspeed_10m,D. Weather Raw,Tốc độ gió 10m,Wind speed at 10m,float64,km/h,Open-Meteo hourly data resampled to 15 minutes,"[0, 42.2]"
-temp_rolling_24h,E. Weather Derived,Nhiệt độ trung bình trượt 24 giờ,24-hour rolling mean temperature,float64,degC,"rolling(temperature_2m, 96)",Trailing window
-temp_diff_24h,E. Weather Derived,Chênh lệch nhiệt độ so với cùng giờ hôm trước,24-hour temperature difference,float64,degC,"diff(temperature_2m, 96)",Initial values filled deterministically
-heat_index,E. Weather Derived,Chỉ số nhiệt cảm nhận,Heat index,float64,degC,Rothfusz/NOAA-style formula,Uses temperature and relative humidity
-is_extreme_hot,E. Weather Derived,Cờ nhiệt độ cực cao,Extreme heat flag,int64,—,Temperature above annual P95,"{0,1}"
-is_extreme_cold,E. Weather Derived,Cờ nhiệt độ cực thấp,Extreme cold flag,int64,—,Temperature below annual P05,"{0,1}"
-humidity_x_temp,E. Weather Derived,Tương tác nhiệt độ và độ ẩm,Humidity-temperature interaction,float64,percent*degC,relative_humidity_2m * temperature_2m,Proxy for thermal discomfort/cooling context
-windspeed_rolling_6h,E. Weather Derived,Tốc độ gió trung bình trượt 6 giờ,6-hour rolling mean wind speed,float64,km/h,"rolling(windspeed_10m, 24)",Trailing window
-Usage_kWh_lag_1,F. Time-Domain Lag,Tiêu thụ 15 phút trước,Usage 15 minutes ago,float64,kWh,"shift(Usage_kWh, 1)",Causal lag; first row missing/fill handled by pipeline
-Usage_kWh_lag_2,F. Time-Domain Lag,Tiêu thụ 30 phút trước,Usage 30 minutes ago,float64,kWh,"shift(Usage_kWh, 2)",Causal lag
-Usage_kWh_lag_4,F. Time-Domain Lag,Tiêu thụ 1 giờ trước,Usage 1 hour ago,float64,kWh,"shift(Usage_kWh, 4)",Causal lag
-Usage_kWh_lag_96,F. Time-Domain Lag,Tiêu thụ 24 giờ trước,Usage 24 hours ago,float64,kWh,"shift(Usage_kWh, 96)",Causal lag; daily cycle reference
-Usage_kWh_rmean_24,G. Time-Domain Rolling,Trung bình trượt 6 giờ,6-hour rolling mean,float64,kWh,"rolling(Usage_kWh, 24).mean()",center=False; causal/trailing
-Usage_kWh_rstd_24,G. Time-Domain Rolling,Độ lệch chuẩn trượt 6 giờ,6-hour rolling standard deviation,float64,kWh,"rolling(Usage_kWh, 24).std()",center=False; causal/trailing
-Usage_kWh_rskew_24,G. Time-Domain Rolling,Độ xiên trượt 6 giờ,6-hour rolling skewness,float64,—,"rolling(Usage_kWh, 24).skew()",center=False; causal/trailing
-Usage_kWh_rmean_48,G. Time-Domain Rolling,Trung bình trượt 12 giờ,12-hour rolling mean,float64,kWh,"rolling(Usage_kWh, 48).mean()",center=False; causal/trailing
-Usage_kWh_rstd_48,G. Time-Domain Rolling,Độ lệch chuẩn trượt 12 giờ,12-hour rolling standard deviation,float64,kWh,"rolling(Usage_kWh, 48).std()",center=False; causal/trailing
-Usage_kWh_rskew_48,G. Time-Domain Rolling,Độ xiên trượt 12 giờ,12-hour rolling skewness,float64,—,"rolling(Usage_kWh, 48).skew()",center=False; causal/trailing
-Usage_kWh_rmean_96,G. Time-Domain Rolling,Trung bình trượt 24 giờ,24-hour rolling mean,float64,kWh,"rolling(Usage_kWh, 96).mean()",center=False; causal/trailing
-Usage_kWh_rstd_96,G. Time-Domain Rolling,Độ lệch chuẩn trượt 24 giờ,24-hour rolling standard deviation,float64,kWh,"rolling(Usage_kWh, 96).std()",center=False; causal/trailing
-Usage_kWh_rskew_96,G. Time-Domain Rolling,Độ xiên trượt 24 giờ,24-hour rolling skewness,float64,—,"rolling(Usage_kWh, 96).skew()",center=False; causal/trailing
-NSM_sin,H. Cyclical Encoding,Mã hóa sin của chu kỳ ngày,Sine of daily cycle angle,float64,—,sin(2*pi*NSM/86400),Pairs with NSM_cos
-NSM_cos,H. Cyclical Encoding,Mã hóa cos của chu kỳ ngày,Cosine of daily cycle angle,float64,—,cos(2*pi*NSM/86400),Pairs with NSM_sin
-Usage_kWh_cA_mean,I. Frequency-Domain DWT,Trung bình hệ số xấp xỉ cA,Mean approximation coefficient,float64,kWh,"DWT db4 level 3 on causal window",Trend component summary
-Usage_kWh_cA_std,I. Frequency-Domain DWT,Độ lệch chuẩn hệ số xấp xỉ cA,Std approximation coefficient,float64,kWh,"DWT db4 level 3 on causal window",Trend variability
-Usage_kWh_cA_energy,I. Frequency-Domain DWT,Năng lượng hệ số xấp xỉ cA,Energy of approximation coefficients,float64,kWh^2,"sum(cA^2)",Trend energy
-Usage_kWh_cA_max_abs,I. Frequency-Domain DWT,Giá trị tuyệt đối lớn nhất của cA,Max absolute approximation coefficient,float64,kWh,"max(abs(cA))",Peak trend magnitude
-Usage_kWh_cD3_mean,I. Frequency-Domain DWT,Trung bình chi tiết cD3,Mean detail coefficient cD3,float64,kWh,"DWT db4 level 3",Low-frequency detail
-Usage_kWh_cD3_std,I. Frequency-Domain DWT,Độ lệch chuẩn chi tiết cD3,Std detail coefficient cD3,float64,kWh,"DWT db4 level 3",Low-frequency variability
-Usage_kWh_cD3_energy,I. Frequency-Domain DWT,Năng lượng chi tiết cD3,Energy detail coefficient cD3,float64,kWh^2,"sum(cD3^2)",Low-frequency detail energy
-Usage_kWh_cD3_max_abs,I. Frequency-Domain DWT,Giá trị tuyệt đối lớn nhất của cD3,Max absolute detail coefficient cD3,float64,kWh,"max(abs(cD3))",Peak low-frequency detail
-Usage_kWh_cD2_mean,I. Frequency-Domain DWT,Trung bình chi tiết cD2,Mean detail coefficient cD2,float64,kWh,"DWT db4 level 3",Mid-frequency detail
-Usage_kWh_cD2_std,I. Frequency-Domain DWT,Độ lệch chuẩn chi tiết cD2,Std detail coefficient cD2,float64,kWh,"DWT db4 level 3",Mid-frequency variability
-Usage_kWh_cD2_energy,I. Frequency-Domain DWT,Năng lượng chi tiết cD2,Energy detail coefficient cD2,float64,kWh^2,"sum(cD2^2)",Mid-frequency detail energy
-Usage_kWh_cD2_max_abs,I. Frequency-Domain DWT,Giá trị tuyệt đối lớn nhất của cD2,Max absolute detail coefficient cD2,float64,kWh,"max(abs(cD2))",Peak mid-frequency detail
-Usage_kWh_cD1_mean,I. Frequency-Domain DWT,Trung bình chi tiết cD1,Mean detail coefficient cD1,float64,kWh,"DWT db4 level 3",High-frequency detail
-Usage_kWh_cD1_std,I. Frequency-Domain DWT,Độ lệch chuẩn chi tiết cD1,Std detail coefficient cD1,float64,kWh,"DWT db4 level 3",High-frequency variability
-Usage_kWh_cD1_energy,I. Frequency-Domain DWT,Năng lượng chi tiết cD1,Energy detail coefficient cD1,float64,kWh^2,"sum(cD1^2)",High-frequency detail energy
-Usage_kWh_cD1_max_abs,I. Frequency-Domain DWT,Giá trị tuyệt đối lớn nhất của cD1,Max absolute detail coefficient cD1,float64,kWh,"max(abs(cD1))",Peak high-frequency detail
-Apparent_Power_S,J. Physical Domain,Công suất biểu kiến proxy,Apparent-load proxy,float64,kVA proxy,"sqrt(P^2 + Q_lag^2)",Interval-relative proxy; not asset-level instantaneous kVA
-Phase_Angle_Phi,J. Physical Domain,Góc lệch pha proxy,Phase-angle proxy,float64,rad,"arccos(clipped PF_lag)",Derived from meter-reported lagging PF
-anomaly_idling,K. Proxy Labels,Nhãn proxy chạy không tải/idle-waste,Idling proxy label,bool,—,Light_Load and off-hours and Usage>median and PF<0.50,10 samples; weak/proxy label
-anomaly_idling_score,K. Proxy Labels,Điểm tin cậy idling,Idling confidence score,float64,—,"0.3*Light + 0.3*OffHours + 0.2*HighUsage + 0.2*LowPF","[0,1]"
-anomaly_leakage,K. Proxy Labels,Nhãn proxy drift/rò rỉ năng lượng,Energy inefficiency drift proxy label,bool,—,rolling_mean_672 > baseline_4weeks*1.05,2336 samples; weak/proxy label
-anomaly_leakage_score,K. Proxy Labels,Điểm tin cậy leakage,Leakage confidence score,float64,—,Tiered by percent increase over baseline,"[0,1]"
-anomaly_overload,K. Proxy Labels,Nhãn proxy quá tải cục bộ,Local overload proxy label,bool,—,Usage>P99.5 and (Q_lag>P99.5 or PF<0.70),48 samples; weak/proxy label
-anomaly_overload_score,K. Proxy Labels,Điểm tin cậy overload,Overload confidence score,float64,—,"0.5*ExtremeUsage + 0.25*HighReactive + 0.25*LowPF","[0,1]"
-anomaly_any,K. Proxy Labels,Cờ tổng hợp bất thường proxy,Any proxy anomaly flag,bool,—,OR of idling leakage overload,2388 samples; 6.815%
-anomaly_max_score,K. Proxy Labels,Điểm proxy lớn nhất,Maximum proxy anomaly score,float64,—,max of component scores,"[0,1]"
-anomaly_explanation,K. Proxy Labels,Diễn giải nhãn proxy mạnh nhất,Human-readable proxy explanation,object,—,Explanation generated from highest score,Not ground truth; not SCADA-confirmed
+date,A. Temporal Identifier,Thời điểm ghi nhận dữ liệu,Timestamp of the observation,datetime,none,Original timestamp,15-minute interval from 2018-01-01 to 2018-12-31
+Usage_kWh,B. Raw Electrical,Lượng điện tiêu thụ trong mỗi khoảng 15 phút,Active energy consumption per interval,float64,kWh,Meter measurement,Main target for load forecasting
+Lagging_Current_Reactive.Power_kVarh,B. Raw Electrical,Công suất phản kháng trễ của hệ thống,Lagging reactive energy,float64,kVArh,Meter measurement,Represents inductive load behavior
+Leading_Current_Reactive_Power_kVarh,B. Raw Electrical,Công suất phản kháng sớm của hệ thống,Leading reactive energy,float64,kVArh,Meter measurement,Often equals zero in this dataset
+CO2(tCO2),B. Raw Electrical,Lượng CO2 tương đương được suy ra từ điện tiêu thụ,Equivalent CO2 emissions,float64,tCO2,Derived from energy consumption,Derived proxy not an independent sensor
+Lagging_Current_Power_Factor,B. Raw Electrical,Hệ số công suất trễ đã chuẩn hóa về khoảng 0 đến 1,Lagging power factor,float64,none,Scaled from raw percent to 0-1,Higher is usually better
+Leading_Current_Power_Factor,B. Raw Electrical,Hệ số công suất sớm đã chuẩn hóa về khoảng 0 đến 1,Leading power factor,float64,none,Scaled from raw percent to 0-1,Higher is usually better
+NSM,C. Calendar and Operational,Số giây tính từ nửa đêm,Seconds from midnight,int64,s,Derived from timestamp,Encodes position within a day
+WeekStatus,C. Calendar and Operational,Cho biết ngày thường hay cuối tuần,Weekday or weekend,object,none,Original dataset,Values are Weekday or Weekend
+Day_of_week,C. Calendar and Operational,Thứ trong tuần,Day of week,object,none,Original dataset,Monday to Sunday
+Load_Type,C. Calendar and Operational,Chế độ tải vận hành của nhà máy,Operational load class,object,none,Original dataset,Light_Load Medium_Load or Maximum_Load
+temperature_2m,D. Weather Raw,Nhiệt độ không khí ở độ cao 2 mét,Air temperature at 2 meters,float64,degC,Open-Meteo data resampled to 15 minutes,External weather context
+precipitation,D. Weather Raw,Lượng mưa,Rainfall,float64,mm,Open-Meteo data resampled to 15 minutes,External weather context
+relative_humidity_2m,D. Weather Raw,Độ ẩm tương đối của không khí,Relative humidity,float64,percent,Open-Meteo data resampled to 15 minutes,External weather context
+windspeed_10m,D. Weather Raw,Tốc độ gió ở độ cao 10 mét,Wind speed at 10 meters,float64,km/h,Open-Meteo data resampled to 15 minutes,External weather context
+temp_rolling_24h,E. Weather Derived,Nhiệt độ trung bình trong 24 giờ gần nhất,24-hour rolling mean temperature,float64,degC,rolling temperature with 96 rows,Smooth weather context
+temp_diff_24h,E. Weather Derived,Mức thay đổi nhiệt độ so với cùng thời điểm hôm trước,Temperature difference from same time previous day,float64,degC,difference over 96 rows,Captures daily temperature change
+heat_index,E. Weather Derived,Nhiệt độ cảm nhận kết hợp nhiệt độ và độ ẩm,Heat index,float64,degC,NOAA-style heat index formula,Context for heat stress
+is_extreme_hot,E. Weather Derived,Cờ đánh dấu thời điểm rất nóng,Extreme hot flag,int64,none,temperature above yearly P95,Value is 0 or 1
+is_extreme_cold,E. Weather Derived,Cờ đánh dấu thời điểm rất lạnh,Extreme cold flag,int64,none,temperature below yearly P05,Value is 0 or 1
+humidity_x_temp,E. Weather Derived,Tương tác giữa độ ẩm và nhiệt độ,Humidity-temperature interaction,float64,percent_degC,relative_humidity_2m times temperature_2m,Simple thermal-context feature
+windspeed_rolling_6h,E. Weather Derived,Tốc độ gió trung bình trong 6 giờ gần nhất,6-hour rolling mean wind speed,float64,km/h,rolling wind speed with 24 rows,Smooth wind context
+Usage_kWh_lag_1,F. Time-Domain Lag,Lượng điện tiêu thụ ở 15 phút trước,Usage 15 minutes ago,float64,kWh,shift Usage_kWh by 1 row,Causal lag feature
+Usage_kWh_lag_2,F. Time-Domain Lag,Lượng điện tiêu thụ ở 30 phút trước,Usage 30 minutes ago,float64,kWh,shift Usage_kWh by 2 rows,Causal lag feature
+Usage_kWh_lag_4,F. Time-Domain Lag,Lượng điện tiêu thụ ở 1 giờ trước,Usage 1 hour ago,float64,kWh,shift Usage_kWh by 4 rows,Causal lag feature
+Usage_kWh_lag_96,F. Time-Domain Lag,Lượng điện tiêu thụ ở cùng thời điểm ngày trước,Usage 24 hours ago,float64,kWh,shift Usage_kWh by 96 rows,Captures daily repetition
+Usage_kWh_rmean_24,G. Time-Domain Rolling,Trung bình tiêu thụ điện trong 6 giờ gần nhất,6-hour rolling mean usage,float64,kWh,rolling mean with 24 rows,Trailing window no future data
+Usage_kWh_rstd_24,G. Time-Domain Rolling,Độ biến động tiêu thụ điện trong 6 giờ gần nhất,6-hour rolling standard deviation,float64,kWh,rolling std with 24 rows,Trailing window no future data
+Usage_kWh_rskew_24,G. Time-Domain Rolling,Độ lệch phân phối tiêu thụ điện trong 6 giờ gần nhất,6-hour rolling skewness,float64,none,rolling skew with 24 rows,Trailing window no future data
+Usage_kWh_rmean_48,G. Time-Domain Rolling,Trung bình tiêu thụ điện trong 12 giờ gần nhất,12-hour rolling mean usage,float64,kWh,rolling mean with 48 rows,Trailing window no future data
+Usage_kWh_rstd_48,G. Time-Domain Rolling,Độ biến động tiêu thụ điện trong 12 giờ gần nhất,12-hour rolling standard deviation,float64,kWh,rolling std with 48 rows,Trailing window no future data
+Usage_kWh_rskew_48,G. Time-Domain Rolling,Độ lệch phân phối tiêu thụ điện trong 12 giờ gần nhất,12-hour rolling skewness,float64,none,rolling skew with 48 rows,Trailing window no future data
+Usage_kWh_rmean_96,G. Time-Domain Rolling,Trung bình tiêu thụ điện trong 24 giờ gần nhất,24-hour rolling mean usage,float64,kWh,rolling mean with 96 rows,Trailing window no future data
+Usage_kWh_rstd_96,G. Time-Domain Rolling,Độ biến động tiêu thụ điện trong 24 giờ gần nhất,24-hour rolling standard deviation,float64,kWh,rolling std with 96 rows,Trailing window no future data
+Usage_kWh_rskew_96,G. Time-Domain Rolling,Độ lệch phân phối tiêu thụ điện trong 24 giờ gần nhất,24-hour rolling skewness,float64,none,rolling skew with 96 rows,Trailing window no future data
+NSM_sin,H. Cyclical Encoding,Mã hóa sin cho thời điểm trong ngày,Sine encoding of time of day,float64,none,sin 2*pi*NSM/86400,Used with NSM_cos
+NSM_cos,H. Cyclical Encoding,Mã hóa cos cho thời điểm trong ngày,Cosine encoding of time of day,float64,none,cos 2*pi*NSM/86400,Used with NSM_sin
+Usage_kWh_cA_mean,I. Frequency-Domain DWT,Trung bình thành phần xu hướng từ DWT,Mean DWT approximation coefficient,float64,kWh,DWT db4 on causal window,Low-frequency trend summary
+Usage_kWh_cA_std,I. Frequency-Domain DWT,Độ biến động của thành phần xu hướng từ DWT,Std DWT approximation coefficient,float64,kWh,DWT db4 on causal window,Low-frequency trend variability
+Usage_kWh_cA_energy,I. Frequency-Domain DWT,Năng lượng của thành phần xu hướng từ DWT,Energy of DWT approximation coefficients,float64,kWh2,sum cA squared,Low-frequency trend magnitude
+Usage_kWh_cA_max_abs,I. Frequency-Domain DWT,Giá trị lớn nhất của thành phần xu hướng từ DWT,Max absolute DWT approximation coefficient,float64,kWh,max absolute cA,Peak low-frequency trend
+Usage_kWh_cD3_mean,I. Frequency-Domain DWT,Trung bình thành phần dao động chậm từ DWT,Mean DWT detail coefficient level 3,float64,kWh,DWT db4 level 3,Low-frequency detail summary
+Usage_kWh_cD3_std,I. Frequency-Domain DWT,Độ biến động của thành phần dao động chậm từ DWT,Std DWT detail coefficient level 3,float64,kWh,DWT db4 level 3,Low-frequency detail variability
+Usage_kWh_cD3_energy,I. Frequency-Domain DWT,Năng lượng của thành phần dao động chậm từ DWT,Energy DWT detail coefficient level 3,float64,kWh2,sum cD3 squared,Low-frequency detail magnitude
+Usage_kWh_cD3_max_abs,I. Frequency-Domain DWT,Giá trị lớn nhất của thành phần dao động chậm từ DWT,Max absolute DWT detail coefficient level 3,float64,kWh,max absolute cD3,Peak low-frequency detail
+Usage_kWh_cD2_mean,I. Frequency-Domain DWT,Trung bình thành phần dao động trung bình từ DWT,Mean DWT detail coefficient level 2,float64,kWh,DWT db4 level 2,Mid-frequency detail summary
+Usage_kWh_cD2_std,I. Frequency-Domain DWT,Độ biến động của thành phần dao động trung bình từ DWT,Std DWT detail coefficient level 2,float64,kWh,DWT db4 level 2,Mid-frequency detail variability
+Usage_kWh_cD2_energy,I. Frequency-Domain DWT,Năng lượng của thành phần dao động trung bình từ DWT,Energy DWT detail coefficient level 2,float64,kWh2,sum cD2 squared,Mid-frequency detail magnitude
+Usage_kWh_cD2_max_abs,I. Frequency-Domain DWT,Giá trị lớn nhất của thành phần dao động trung bình từ DWT,Max absolute DWT detail coefficient level 2,float64,kWh,max absolute cD2,Peak mid-frequency detail
+Usage_kWh_cD1_mean,I. Frequency-Domain DWT,Trung bình thành phần dao động nhanh từ DWT,Mean DWT detail coefficient level 1,float64,kWh,DWT db4 level 1,High-frequency detail summary
+Usage_kWh_cD1_std,I. Frequency-Domain DWT,Độ biến động của thành phần dao động nhanh từ DWT,Std DWT detail coefficient level 1,float64,kWh,DWT db4 level 1,High-frequency detail variability
+Usage_kWh_cD1_energy,I. Frequency-Domain DWT,Năng lượng của thành phần dao động nhanh từ DWT,Energy DWT detail coefficient level 1,float64,kWh2,sum cD1 squared,High-frequency detail magnitude
+Usage_kWh_cD1_max_abs,I. Frequency-Domain DWT,Giá trị lớn nhất của thành phần dao động nhanh từ DWT,Max absolute DWT detail coefficient level 1,float64,kWh,max absolute cD1,Peak high-frequency detail
+Apparent_Power_S,J. Physical Domain,Công suất biểu kiến proxy tính từ tải tác dụng và phản kháng,Apparent-load proxy,float64,kVA_proxy,sqrt P squared plus Q_lag squared,Derived physical feature not asset-level kVA
+Phase_Angle_Phi,J. Physical Domain,Góc lệch pha proxy tính từ hệ số công suất,Phase-angle proxy,float64,rad,arccos clipped PF_lag,Derived physical feature
+anomaly_idling,K. Proxy Labels,Cờ nghi ngờ chạy không tải lãng phí điện,Idling proxy label,bool,none,Light_Load off-hours high usage and low PF,Weak label not confirmed fault
+anomaly_idling_score,K. Proxy Labels,Điểm mức độ nghi ngờ chạy không tải,Idling confidence score,float64,none,weighted rule score,Range 0 to 1
+anomaly_leakage,K. Proxy Labels,Cờ nghi ngờ tiêu thụ điện tăng dần bất thường,Energy inefficiency drift proxy label,bool,none,rolling mean above four-week baseline by 5 percent,Weak label not physical leakage
+anomaly_leakage_score,K. Proxy Labels,Điểm mức độ nghi ngờ drift năng lượng,Leakage confidence score,float64,none,tiered score by percent increase,Range 0 to 1
+anomaly_overload,K. Proxy Labels,Cờ nghi ngờ quá tải cục bộ,Local overload proxy label,bool,none,extreme usage and high reactive power or low PF,Weak label not confirmed overload
+anomaly_overload_score,K. Proxy Labels,Điểm mức độ nghi ngờ quá tải,Overload confidence score,float64,none,weighted rule score,Range 0 to 1
+anomaly_any,K. Proxy Labels,Cờ tổng hợp có ít nhất một tín hiệu bất thường proxy,Any proxy anomaly flag,bool,none,OR of three proxy labels,Weak label for offline analysis
+anomaly_max_score,K. Proxy Labels,Điểm proxy cao nhất trong ba nhóm nhãn,Maximum proxy score,float64,none,max of component scores,Range 0 to 1
+anomaly_explanation,K. Proxy Labels,Diễn giải ngắn cho tín hiệu proxy mạnh nhất,Human-readable proxy explanation,object,none,Generated from strongest score,Not ground truth not SCADA-confirmed
