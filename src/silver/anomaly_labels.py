@@ -1,377 +1,456 @@
 """
-Anomaly Labeling Module with Guideline-Based Confidence Scoring
+Anomaly Labeling Module — v2.5 Guideline Implementation
 
-Dinh nghia va gan nhan cac co che bat thuong vat ly tren tap du lieu
-tieu thu dien nang ngành thep, co kem theo Confidence Score va giai thich
-(explainability) dua tren tai lieu huong dan (docs/LABELING_GUIDELINE.md).
-
-Cac loai bat thuong:
-  1. Idling (Chay khong tai keo dai): Light Load + cuoi tuan/dem
-     nhung Usage_kWh cao bat thuong + Power Factor thap.
-  2. Leakage (Ro ri nang luong & Concept Drift): Gia tang tiem tien
-     cua Usage_kWh o cung dieu kien van hanh qua cac chu ky.
-  3. Local Overload (Qua tai cuc bo): Xung Usage_kWh cuc dai +
-     bung no reactive power + sup do Power Factor.
+Sinh weak/proxy labels theo docs/LABELING_GUIDELINE_v2.5.md va data_codebook.md.
+Output canonical columns: Suspected_Idling, Suspected_Leakage_Drift,
+Suspected_Overload, anomaly_any, dominant_label, label_reason,
+is_proxy_label, baseline_warning, night_simplified_baseline_warning.
 
 Tham chieu:
-  - docs/LABELING_GUIDELINE.md
+  - docs/LABELING_GUIDELINE_v2.5.md
   - IEEE 519-2014 (Power Factor thresholds)
   - ISO 50001:2018 (Energy baseline & drift)
-  - "Huong dan do an tien xu ly du lieu" - muc III.
 """
 
 import numpy as np
 import pandas as pd
 
 
-# ── Idling Detection ────────────────────────────────────────────────
+# ── Utilities ───────────────────────────────────────────────────────────────
 
-def label_idling(df: pd.DataFrame) -> pd.Series:
+
+def _detect_pf_rule(df: pd.DataFrame) -> pd.Series:
     """
-    Phat hien hien tuong chay khong tai keo dai (Idling / Energy Waste).
-
-    Dieu kien dong thoi (AND):
-      - Load_Type == "Light_Load"
-      - WeekStatus == "Weekday" nhung NSM thuoc khung dem, HOAC WeekStatus == "Weekend"
-      - Usage_kWh > nguong trung vi (duy tri cao bat thuong)
-      - Lagging_Current_Power_Factor < 0.50 (IEEE 519 severe threshold)
-
-    Args:
-        df: DataFrame chua cac cot: Load_Type, WeekStatus, NSM,
-            Usage_kWh, Lagging_Current_Power_Factor.
-
-    Returns:
-        pd.Series boolean danh dau cac diem nghi ngo idling.
+    Tra ve PF_rule trong [0, 1]. Robust detect: chia 100 neu max > 1.0.
     """
-    is_light = df["Load_Type"] == "Light_Load"
-
-    # Khung dem: NSM < 21600 (truoc 6h sang) hoac NSM > 75600 (sau 21h)
-    is_night = (df["NSM"] < 21600) | (df["NSM"] > 75600)
-    is_weekend = df["WeekStatus"] == "Weekend"
-    is_off_hours = is_night | is_weekend
-
-    usage_median = df["Usage_kWh"].median()
-    is_high_usage = df["Usage_kWh"] > usage_median
-
-    # IEEE 519: PF < 0.50 la severe penalty zone
-    is_low_pf = df["Lagging_Current_Power_Factor"] < 0.50
-
-    return is_light & is_off_hours & is_high_usage & is_low_pf
+    pf = df["Lagging_Current_Power_Factor"].astype(float)
+    if pf.max() > 1.0:
+        return pf / 100.0
+    return pf
 
 
-def score_idling(df: pd.DataFrame) -> pd.Series:
-    """
-    Tinh confidence score cho nhan Idling.
-
-    Score = 0.3 * I(Light_Load) + 0.3 * I(Off-hours)
-          + 0.2 * I(Usage > median) + 0.2 * I(PF < 0.50)
-
-    Args:
-        df: DataFrame dau vao.
-
-    Returns:
-        pd.Series float trong [0, 1].
-    """
-    score = pd.Series(0.0, index=df.index)
-
-    is_light = df["Load_Type"] == "Light_Load"
-    is_night = (df["NSM"] < 21600) | (df["NSM"] > 75600)
-    is_weekend = df["WeekStatus"] == "Weekend"
-    is_off_hours = is_night | is_weekend
-    is_high_usage = df["Usage_kWh"] > df["Usage_kWh"].median()
-    is_low_pf = df["Lagging_Current_Power_Factor"] < 0.50
-
-    score += 0.3 * is_light.astype(float)
-    score += 0.3 * is_off_hours.astype(float)
-    score += 0.2 * is_high_usage.astype(float)
-    score += 0.2 * is_low_pf.astype(float)
-
-    return score.clip(0.0, 1.0)
-
-
-# ── Leakage / Concept Drift Detection ──────────────────────────────
-
-def label_leakage(
-    df: pd.DataFrame,
-    window: int = 672,
-    threshold_pct: float = 5.0,
-) -> pd.Series:
-    """
-    Phat hien ro ri nang luong / troi dac tinh (Concept Drift).
-
-    Nguyen ly: So sanh trung binh truot dai han voi baseline theo mua
-    (seasonal baseline). Baseline duoc tinh bang trung binh cua cung
-    khung gio (dayofweek + hour) tren toan bo dataset, loai bo anh huong
-    cua chu ky tuan va mua vu. Khi rolling mean vuot qua nguong % so voi
-    baseline seasonal, do la dau hieu suy thoai hieu suat khong giai
-    thich duoc boi chu ky van hanh thong thuong.
-
-    ISO 50001: Nguong canh bao +5% so voi baseline.
-
-    Args:
-        df: DataFrame chua cot Usage_kWh (da sap xep theo thoi gian).
-        window: Kich thuoc cua so truot (mac dinh 672 = 1 tuan @ 15 min).
-        threshold_pct: Nguong tang % so voi baseline de danh dau leakage.
-
-    Returns:
-        pd.Series boolean danh dau cac diem nghi ngo leakage.
-    """
-    rolling_mean = df["Usage_kWh"].rolling(window, min_periods=1).mean()
-
-    # Baseline = mean of first 4 weeks (2,688 samples @ 15min)
-    # Using 4 weeks instead of 1 week avoids bias from an atypical startup week.
-    # If data is shorter than 4 weeks, use all available data.
-    baseline_window = min(window * 4, len(df))
-    baseline = df["Usage_kWh"].iloc[:baseline_window].mean()
-
-    pct_increase = (rolling_mean - baseline) / baseline * 100
-    return pct_increase > threshold_pct
-
-
-def score_leakage(
-    df: pd.DataFrame,
-    window: int = 672,
-) -> pd.Series:
-    """
-    Tinh confidence score cho nhan Leakage.
-
-    Score phan cap theo muc do tang so voi baseline 4 tuan dau:
-      > 20% -> 1.0 (nguy hiem)
-      > 10% -> 0.7 (canh bao)
-      >  5% -> 0.4 (nhe)
-      <= 5% -> 0.0
-
-    Args:
-        df: DataFrame dau vao.
-        window: Kich thuoc cua so truot.
-
-    Returns:
-        pd.Series float trong [0, 1].
-    """
-    rolling_mean = df["Usage_kWh"].rolling(window, min_periods=1).mean()
-
-    baseline_window = min(window * 4, len(df))
-    baseline = df["Usage_kWh"].iloc[:baseline_window].mean()
-
-    pct_increase = (rolling_mean - baseline) / baseline * 100
-
-    score = pd.Series(0.0, index=df.index)
-    score = np.where(pct_increase > 20, 1.0, score)
-    score = np.where((pct_increase > 10) & (pct_increase <= 20), 0.7, score)
-    score = np.where((pct_increase > 5) & (pct_increase <= 10), 0.4, score)
-
-    return pd.Series(score, index=df.index)
-
-
-# ── Local Overload Detection ───────────────────────────────────────
-
-def label_overload(
-    df: pd.DataFrame,
-    usage_percentile: float = 0.995,
-    pf_threshold: float = 0.70,
-) -> pd.Series:
-    """
-    Phat hien qua tai cuc bo (Local Overload & Extreme Point Anomalies).
-
-    Dieu kien dong thoi:
-      - Usage_kWh vuot percentile 99.5 (point anomaly - top 0.5%)
-      - Lagging_Current_Reactive.Power_kVarh cao bat thuong (bao hoa tu)
-      - Lagging_Current_Power_Factor sup do duoi nguong (IEEE 519 minimum)
-
-    Note: Du lieu nay khong co outlier theo Tukey 3*IQR do dac thu phan phoi,
-    nen su dung percentile-based thay cho IQR-based.
-
-    Args:
-        df: DataFrame chua cac cot dien nang.
-        usage_percentile: Phan vi nguong cho Usage_kWh. Mac dinh 0.995.
-        pf_threshold: Nguong Power Factor duoi do coi la sup do. Mac dinh 0.70.
-
-    Returns:
-        pd.Series boolean danh dau cac diem nghi ngo overload.
-    """
-    # Percentile-based outlier detection cho Usage_kWh
-    upper_bound = df["Usage_kWh"].quantile(usage_percentile)
-    is_extreme_usage = df["Usage_kWh"] > upper_bound
-
-    # Reactive power cung phai cao bat thuong
-    q_col = "Lagging_Current_Reactive.Power_kVarh"
-    upper_q = df[q_col].quantile(usage_percentile)
-    is_high_reactive = df[q_col] > upper_q
-
-    # Power Factor suy giam (IEEE 519: PF < 0.85 la khong chap nhan duoc)
-    is_low_pf = df["Lagging_Current_Power_Factor"] < pf_threshold
-
-    # Overload = Usage cuc cao AND (Reactive cao OR PF kem)
-    return is_extreme_usage & (is_high_reactive | is_low_pf)
-
-
-def score_overload(
-    df: pd.DataFrame,
-    usage_percentile: float = 0.995,
-    pf_threshold: float = 0.70,
-) -> pd.Series:
-    """
-    Tinh confidence score cho nhan Overload.
-
-    Score = 0.4 * I(Usage extreme outlier)
-          + 0.3 * I(Reactive extreme outlier)
-          + 0.3 * I(PF < threshold)
-
-    Args:
-        df: DataFrame dau vao.
-        usage_percentile: Phan vi nguong cho Usage_kWh.
-        pf_threshold: Nguong PF.
-
-    Returns:
-        pd.Series float trong [0, 1].
-    """
-    is_extreme_usage = df["Usage_kWh"] > df["Usage_kWh"].quantile(usage_percentile)
-
-    q_col = "Lagging_Current_Reactive.Power_kVarh"
-    is_high_reactive = df[q_col] > df[q_col].quantile(usage_percentile)
-
-    is_low_pf = df["Lagging_Current_Power_Factor"] < pf_threshold
-
-    # Score cao nhat khi ca 3 dieu kien dung, thap nhat khi chi co 1
-    score = (
-        0.5 * is_extreme_usage.astype(float)
-        + 0.25 * is_high_reactive.astype(float)
-        + 0.25 * is_low_pf.astype(float)
-    )
-    return score.clip(0.0, 1.0)
-
-
-# ── Explanation ─────────────────────────────────────────────────────
-
-def explain_idling(row: pd.Series) -> str:
-    """
-    Tra ve giai thich van ban cho nhan Idling.
-
-    Args:
-        row: Mot hang DataFrame (Series) chua cac cot lien quan.
-
-    Returns:
-        str: Giai thich.
-    """
-    reasons = []
-    if row.get("Load_Type") == "Light_Load":
-        reasons.append("light load condition")
-    if (row.get("NSM", 0) < 21600) or (row.get("NSM", 0) > 75600):
-        reasons.append("nighttime off-hours")
-    if row.get("WeekStatus") == "Weekend":
-        reasons.append("weekend")
-    if row.get("Usage_kWh", 0) > 0:  # so sanh voi median can truyen vao
-        reasons.append("usage above median")
-    if row.get("Lagging_Current_Power_Factor", 1.0) < 0.50:
-        reasons.append("PF below 0.50 (IEEE 519 severe)")
-
-    return "Idling detected: " + "; ".join(reasons) if reasons else "No idling signs"
-
-
-def explain_leakage(row: pd.Series, baseline: float, pct_increase: float) -> str:
-    """
-    Tra ve giai thich van ban cho nhan Leakage.
-
-    Args:
-        row: Mot hang DataFrame.
-        baseline: Gia tri baseline.
-        pct_increase: Phan tram tang.
-
-    Returns:
-        str: Giai thich.
-    """
+def _compute_q_net(df: pd.DataFrame) -> pd.Series:
+    """Q_net = lagging - leading reactive power."""
     return (
-        f"Leakage detected: rolling mean increased {pct_increase:.1f}% "
-        f"above baseline ({baseline:.2f} kWh). Possible equipment degradation."
+        df["Lagging_Current_Reactive.Power_kVarh"]
+        - df["Leading_Current_Reactive_Power_kVarh"]
     )
 
 
-def explain_overload(row: pd.Series) -> str:
+def _keep_consecutive_runs(flags: pd.Series, min_length: int = 4) -> pd.Series:
     """
-    Tra ve giai thich van ban cho nhan Overload.
-
-    Args:
-        row: Mot hang DataFrame.
-
-    Returns:
-        str: Giai thich.
+    Chỉ giữ lại các run True có độ dài >= min_length.
     """
-    reasons = []
-    pf = row.get("Lagging_Current_Power_Factor", 1.0)
-    if pf < 0.70:
-        reasons.append(f"PF collapsed to {pf:.2f} (< 0.70)")
-    if row.get("Usage_kWh", 0) > 0:
-        reasons.append("extreme usage spike")
-    if row.get("Lagging_Current_Reactive.Power_kVarh", 0) > 0:
-        reasons.append("reactive power surge")
-
-    return "Overload detected: " + "; ".join(reasons) if reasons else "No overload signs"
+    if flags.sum() == 0:
+        return flags.copy()
+    result = pd.Series(False, index=flags.index)
+    group_ids = (flags != flags.shift(1)).cumsum()
+    for gid, grp in flags[flags].groupby(group_ids):
+        if len(grp) >= min_length:
+            result.loc[grp.index] = True
+    return result
 
 
-# ── Orchestrator ────────────────────────────────────────────────────
+def _compute_context_p99(
+    df: pd.DataFrame,
+    column: str,
+) -> pd.Series:
+    """
+    Tra ve P99.5 theo ngữ cảnh cho mỗi dòng.
+    Context: Load_Type × Hour × WeekStatus → Hour × WeekStatus → Load_Type → global.
+    Đồng thời trả về baseline_level va baseline_warning.
+    """
+    n = len(df)
+    p99_series = pd.Series(np.nan, index=df.index, dtype=float)
+    baseline_level = pd.Series(0, index=df.index, dtype=np.int8)
+    baseline_warning = pd.Series(False, index=df.index)
+
+    # Level 1: Load_Type × Hour × WeekStatus
+    groups = df.groupby(["Load_Type", "Hour", "WeekStatus"], sort=False)
+    for keys, idx in groups.groups.items():
+        vals = df.loc[idx, column]
+        if len(vals) >= 10:
+            p99_series.loc[idx] = vals.quantile(0.995)
+            baseline_level.loc[idx] = 1
+        else:
+            # Mark for fallback
+            p99_series.loc[idx] = np.nan
+
+    # Level 2: Hour × WeekStatus
+    still_nan = p99_series.isna()
+    if still_nan.any():
+        groups2 = df.loc[still_nan].groupby(["Hour", "WeekStatus"], sort=False)
+        for keys, idx in groups2.groups.items():
+            vals = df.loc[idx, column]
+            if len(vals) >= 10:
+                p99_series.loc[idx] = vals.quantile(0.995)
+                baseline_level.loc[idx] = 2
+            else:
+                p99_series.loc[idx] = np.nan
+
+    # Level 3: Load_Type
+    still_nan = p99_series.isna()
+    if still_nan.any():
+        groups3 = df.loc[still_nan].groupby("Load_Type", sort=False)
+        for keys, idx in groups3.groups.items():
+            vals = df.loc[idx, column]
+            if len(vals) >= 10:
+                p99_series.loc[idx] = vals.quantile(0.995)
+                baseline_level.loc[idx] = 3
+            else:
+                p99_series.loc[idx] = np.nan
+
+    # Level 4: global fallback
+    still_nan = p99_series.isna()
+    if still_nan.any():
+        p99_series.loc[still_nan] = df[column].quantile(0.995)
+        baseline_level.loc[still_nan] = 4
+        baseline_warning.loc[still_nan] = True
+
+    # baseline_warning if group size < 10 or std == 0
+    for (lt, h, ws), idx in groups.groups.items():
+        vals = df.loc[idx, column]
+        if len(vals) < 10 or vals.std() == 0:
+            baseline_warning.loc[idx] = True
+
+    return p99_series, baseline_level, baseline_warning
+
+
+def _compute_context_median_idling(
+    df: pd.DataFrame,
+) -> pd.Series:
+    """
+    Tra ve Median(Usage_kWh | Light_Load × Hour × WeekStatus) cho mỗi dòng.
+    Fallback: Light_Load × Hour → Light_Load global.
+    """
+    light = df[df["Load_Type"] == "Light_Load"].copy()
+    if len(light) == 0:
+        return pd.Series(np.nan, index=df.index)
+
+    median_series = pd.Series(np.nan, index=df.index, dtype=float)
+    baseline_level = pd.Series(0, index=df.index, dtype=np.int8)
+    baseline_warning = pd.Series(False, index=df.index)
+
+    # Level 1: Light_Load × Hour × WeekStatus
+    groups = light.groupby(["Hour", "WeekStatus"], sort=False)
+    for keys, idx in groups.groups.items():
+        idx_full = df.index[df.index.isin(idx)]
+        vals = light.loc[idx, "Usage_kWh"]
+        if len(vals) >= 10:
+            median_series.loc[idx_full] = vals.median()
+            baseline_level.loc[idx_full] = 1
+
+    # Level 2: Light_Load × Hour
+    still_nan = median_series.isna()
+    if still_nan.any():
+        groups2 = light.groupby("Hour", sort=False)
+        for keys, idx in groups2.groups.items():
+            idx_full = df.index[df.index.isin(idx)]
+            vals = light.loc[idx, "Usage_kWh"]
+            if len(vals) >= 10:
+                median_series.loc[idx_full] = vals.median()
+                baseline_level.loc[idx_full] = 2
+
+    # Level 3: Light_Load global
+    still_nan = median_series.isna()
+    if still_nan.any():
+        median_series.loc[still_nan] = light["Usage_kWh"].median()
+        baseline_level.loc[still_nan] = 3
+        baseline_warning.loc[still_nan] = True
+
+    # baseline_warning for small/zero-std groups
+    for keys, idx in groups.groups.items():
+        vals = light.loc[idx, "Usage_kWh"]
+        if len(vals) < 10 or vals.std() == 0:
+            idx_full = df.index[df.index.isin(idx)]
+            baseline_warning.loc[idx_full] = True
+
+    return median_series, baseline_level, baseline_warning
+
+
+def _compute_rolling_28d_s(df: pd.DataFrame) -> pd.Series:
+    """Rolling 28-day mean of Apparent_Power_S. Window = 28*24*4 = 2688."""
+    window = 28 * 24 * 4
+    return df["Apparent_Power_S"].rolling(window, min_periods=window).mean()
+
+
+def _compute_pf_volatility(pf_rule: pd.Series, window: int = 4) -> pd.Series:
+    """Rolling std of PF_rule. Default window=4 = 1 hour @ 15min."""
+    return pf_rule.rolling(window, min_periods=window).std()
+
+
+def _compute_reactive_power_ratio(df: pd.DataFrame) -> pd.Series:
+    """Reactive_Power_Ratio = Q_net / (Usage_kWh + epsilon). Internal only."""
+    q_net = _compute_q_net(df)
+    eps = 1e-9
+    return q_net / (df["Usage_kWh"] + eps)
+
+
+# ── Point-Level Labeling ────────────────────────────────────────────────────
+
+
+def _label_overload_point(
+    df: pd.DataFrame,
+    p99_s: pd.Series,
+) -> pd.Series:
+    """
+    Overload point-level: Apparent_Power_S > context P99.5 AND PF_rule < 0.70.
+    """
+    pf_rule = _detect_pf_rule(df)
+    cond_a = df["Apparent_Power_S"] > p99_s
+    cond_b = pf_rule < 0.70
+    return cond_a & cond_b
+
+
+def _label_idling_point(
+    df: pd.DataFrame,
+    median_s: pd.Series,
+) -> pd.Series:
+    """
+    Idling point-level: Light_Load & Usage_kWh > context median & PF_rule < 0.50.
+    """
+    pf_rule = _detect_pf_rule(df)
+    is_light = df["Load_Type"] == "Light_Load"
+    usage_above = df["Usage_kWh"] > median_s
+    low_pf = pf_rule < 0.50
+    return is_light & usage_above & low_pf
+
+
+def _label_leakage_point(
+    df: pd.DataFrame,
+    rolling_28d_s: pd.Series,
+) -> pd.Series:
+    """Leakage point-level: Usage_kWh>1 & rolling 28d S >=5% & PF/reactive OR."""
+    pf_rule = _detect_pf_rule(df)
+
+    # Usage > 1
+    usage_ok = df["Usage_kWh"] > 1
+
+    # Rolling 28-day S increase >= 5% per Load_Type
+    # Baseline: first 28 days median per Load_Type (avoid future leakage)
+    # If first 28 days not available, use per-Load_Type median with comment
+    n_28d = 28 * 24 * 4
+    baseline_s = pd.Series(np.nan, index=df.index, dtype=float)
+    for lt in df["Load_Type"].unique():
+        mask_lt = df["Load_Type"] == lt
+        s_lt = df.loc[mask_lt, "Apparent_Power_S"]
+        if len(s_lt) >= n_28d:
+            baseline_s.loc[mask_lt] = s_lt.iloc[:n_28d].median()
+        else:
+            # Fallback: per-Load_Type median
+            baseline_s.loc[mask_lt] = s_lt.median()
+    rolling_increase_ok = rolling_28d_s >= (baseline_s * 1.05)
+
+    # PF/reactive OR condition (at least one)
+    cond_a = pf_rule < 0.50
+
+    # Internal PF volatility > P95 by Load_Type
+    pf_vol = _compute_pf_volatility(pf_rule)
+    p95_vol = pf_vol.groupby(df["Load_Type"]).transform("quantile", q=0.95)
+    cond_b = pf_vol > p95_vol
+
+    # Internal reactive ratio outside [P5, P95] by Load_Type
+    rpr = _compute_reactive_power_ratio(df)
+    p5_rpr = rpr.groupby(df["Load_Type"]).transform("quantile", q=0.05)
+    p95_rpr = rpr.groupby(df["Load_Type"]).transform("quantile", q=0.95)
+    cond_c = (rpr < p5_rpr) | (rpr > p95_rpr)
+
+    pf_or_reactive = cond_a | cond_b | cond_c
+
+    return usage_ok & rolling_increase_ok & pf_or_reactive
+
+
+# ── label_reason ────────────────────────────────────────────────────────────
+
+
+def _build_label_reason(
+    df: pd.DataFrame,
+    overload: pd.Series,
+    idling: pd.Series,
+    leakage: pd.Series,
+    dominant: pd.Series,
+    baseline_warning: pd.Series,
+    night_warning: pd.Series,
+    overlay_map: dict,
+) -> pd.Series:
+    """Build parseable label_reason strings."""
+    reasons = pd.Series("Normal", index=df.index)
+    pf_rule = _detect_pf_rule(df)
+
+    # Overload
+    ol_mask = dominant == "Suspected_Overload"
+    reasons.loc[ol_mask] = "S>P99.5_context;PF_rule<0.70"
+
+    # Idling
+    id_mask = dominant == "Suspected_Idling"
+    reasons.loc[id_mask] = "Light_Load;Usage>Median_context;PF_rule<0.50;duration>=4"
+
+    # Leakage
+    lk_mask = dominant == "Suspected_Leakage_Drift"
+    reasons.loc[lk_mask] = (
+        "Usage>1;rolling28d_S>=1.05_baseline;PF_or_reactive_condition;duration>=4"
+    )
+
+    # Excluded
+    ex_mask = dominant == "Excluded"
+    reasons.loc[ex_mask] = "Excluded:hard_filter"
+
+    return reasons
+
+
+# ── Orchestrator ────────────────────────────────────────────────────────────
+
 
 def label_all_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Gan tat ca nhan bat thuong vao DataFrame, kem confidence score va giai thich.
+    Gán tất cả weak/proxy labels theo guideline v2.5.
 
-    Them 9 cot moi:
-      - anomaly_idling (bool)
-      - anomaly_idling_score (float [0,1])
-      - anomaly_leakage (bool)
-      - anomaly_leakage_score (float [0,1])
-      - anomaly_overload (bool)
-      - anomaly_overload_score (float [0,1])
-      - anomaly_any (bool) - OR cua 3 nhan tren
-      - anomaly_max_score (float) - max cua 3 score
-      - anomaly_explanation (str) - giai thich chinh
+    Thêm 9 cột canonical:
+      - Suspected_Idling        (int8)
+      - Suspected_Leakage_Drift (int8)
+      - Suspected_Overload       (int8)
+      - anomaly_any             (int8)
+      - dominant_label          (str)
+      - label_reason            (str)
+      - is_proxy_label          (bool, always True)
+      - baseline_warning        (bool)
+      - night_simplified_baseline_warning (bool)
 
     Args:
-        df: DataFrame day du (da qua cleaning, co cac cot dien nang).
+        df: DataFrame đã qua cleaning và feature engineering (cần có
+            Apparent_Power_S, Lagging_Current_Power_Factor, Usage_kWh,
+            Load_Type, Hour, WeekStatus, Lagging_Current_Reactive.Power_kVarh,
+            Leading_Current_Reactive_Power_kVarh).
 
     Returns:
-        DataFrame moi = df goc + cac cot nhan bat thuong.
+        DataFrame mới = df gốc + 9 cột label.
     """
     result = df.copy()
 
-    # Idling
-    result["anomaly_idling"] = label_idling(df)
-    result["anomaly_idling_score"] = score_idling(df)
+    _hour_added = False
+    if "Hour" not in result.columns:
+        _hour_added = True
+        if "NSM" in result.columns:
+            result["Hour"] = result["NSM"] // 3600
+        elif "date" in result.columns:
+            result["Hour"] = pd.to_datetime(result["date"], dayfirst=True).dt.hour
+        else:
+            raise KeyError("Cannot derive Hour column: NSM and date missing")
 
-    # Leakage
-    result["anomaly_leakage"] = label_leakage(df)
-    result["anomaly_leakage_score"] = score_leakage(df)
+    pf_rule = _detect_pf_rule(result)
 
-    # Overload
-    result["anomaly_overload"] = label_overload(df)
-    result["anomaly_overload_score"] = score_overload(df)
+    # ── Step 1: Compute context baselines ──────────────────────────────────
+    p99_s, bl_level_ol, bl_warn_ol = _compute_context_p99(result, "Apparent_Power_S")
+    median_idl, bl_level_id, bl_warn_id = _compute_context_median_idling(result)
+    rolling_28d = _compute_rolling_28d_s(result)
 
-    # Aggregate
-    result["anomaly_any"] = (
-        result["anomaly_idling"]
-        | result["anomaly_leakage"]
-        | result["anomaly_overload"]
+    # ── Step 2: Compute point-level flags ──────────────────────────────────
+    overload_point = _label_overload_point(result, p99_s)
+    idling_point = _label_idling_point(result, median_idl)
+    leakage_point = _label_leakage_point(result, rolling_28d)
+
+    # ── Step 3: Hard data-quality filters ──────────────────────────────────
+    # Zero-power: Usage_kWh==0 && Apparent_Power_S==0
+    zero_power = (result["Usage_kWh"] == 0) & (result["Apparent_Power_S"] == 0)
+    # Negative power
+    negative_power = result["Usage_kWh"] < 0
+
+    excluded = zero_power | negative_power
+    # Set point-level flags to False for excluded rows
+    overload_point.loc[excluded] = False
+    idling_point.loc[excluded] = False
+    leakage_point.loc[excluded] = False
+
+    # ── Step 4: Duration post-processing ───────────────────────────────────
+    # Overload: point anomaly, no duration requirement
+    # Idling: >= 4 consecutive rows
+    # Leakage: >= 4 consecutive rows
+    idling_duration = _keep_consecutive_runs(idling_point, min_length=4)
+    leakage_duration = _keep_consecutive_runs(leakage_point, min_length=4)
+
+    # ── Step 5: Priority resolution ────────────────────────────────────────
+    # Overload > Idling > Leakage > Normal
+    dominant_label = pd.Series("Normal", index=result.index, dtype=object)
+    dominant_label[excluded] = "Excluded"
+    dominant_label[leakage_duration] = "Suspected_Leakage_Drift"
+    dominant_label[idling_duration] = "Suspected_Idling"
+    dominant_label[overload_point] = "Suspected_Overload"
+
+    # Set component flags based on dominant_label (only winning label ON)
+    result["Suspected_Overload"] = pd.Series(
+        (dominant_label == "Suspected_Overload").astype(np.int8),
+        index=result.index,
     )
-    result["anomaly_max_score"] = result[
-        ["anomaly_idling_score", "anomaly_leakage_score", "anomaly_overload_score"]
-    ].max(axis=1)
+    result["Suspected_Idling"] = pd.Series(
+        (dominant_label == "Suspected_Idling").astype(np.int8),
+        index=result.index,
+    )
+    result["Suspected_Leakage_Drift"] = pd.Series(
+        (dominant_label == "Suspected_Leakage_Drift").astype(np.int8),
+        index=result.index,
+    )
 
-    # Explanation (lay nhan co score cao nhat)
-    def _explain(row):
-        scores = {
-            "idling": row["anomaly_idling_score"],
-            "leakage": row["anomaly_leakage_score"],
-            "overload": row["anomaly_overload_score"],
-        }
-        top = max(scores, key=scores.get)
-        if scores[top] < 0.1:
-            return "No significant anomaly detected"
-        if top == "idling":
-            return explain_idling(row)
-        if top == "overload":
-            return explain_overload(row)
-        # leakage - can baseline & pct, dung generic
-        return f"Leakage score: {scores[top]:.2f} - possible gradual energy degradation"
+    # ── Step 6: anomaly_any ────────────────────────────────────────────────
+    result["anomaly_any"] = pd.Series(
+        (
+            (result["Suspected_Overload"] == 1)
+            | (result["Suspected_Idling"] == 1)
+            | (result["Suspected_Leakage_Drift"] == 1)
+        ).astype(np.int8),
+        index=result.index,
+    )
 
-    result["anomaly_explanation"] = result.apply(_explain, axis=1)
+    # ── Step 7: dominant_label ─────────────────────────────────────────────
+    result["dominant_label"] = dominant_label
+
+    # ── Step 8: Warning flags ──────────────────────────────────────────────
+    # Merge baseline warnings from Overload and Idling contexts
+    result["baseline_warning"] = bl_warn_ol | bl_warn_id
+
+    # Night simplified baseline: baseline_level=3 and Hour in 0-5
+    night_hours = result["Hour"].between(0, 5)
+    night_level3_ol = (bl_level_ol == 3) & night_hours
+    night_level3_id = (bl_level_id == 3) & night_hours
+    result["night_simplified_baseline_warning"] = night_level3_ol | night_level3_id
+
+    # ── Step 9: label_reason ───────────────────────────────────────────────
+    overlap_before = (
+        overload_point.astype(int)
+        + idling_point.astype(int)
+        + leakage_point.astype(int)
+    )
+    overlay_count = int((overlap_before > 1).sum())
+    result["label_reason"] = _build_label_reason(
+        result,
+        overload_point,
+        idling_point,
+        leakage_point,
+        dominant_label,
+        result["baseline_warning"],
+        result["night_simplified_baseline_warning"],
+        {"overlap_before": overlay_count},
+    )
+
+    # ── Step 10: is_proxy_label ────────────────────────────────────────────
+    result["is_proxy_label"] = True
+
+    # ── Cleanup: remove temporary Hour column if we added it ────────────────
+    if _hour_added:
+        result = result.drop(columns=["Hour"])
+
+    # ── Reorder: ensure canonical column order ──────────────────────────────
+    label_order = [
+        "Suspected_Idling",
+        "Suspected_Leakage_Drift",
+        "Suspected_Overload",
+        "anomaly_any",
+        "dominant_label",
+        "label_reason",
+        "is_proxy_label",
+        "baseline_warning",
+        "night_simplified_baseline_warning",
+    ]
+    base_cols = [c for c in result.columns if c not in label_order]
+    result = result[base_cols + label_order]
 
     return result

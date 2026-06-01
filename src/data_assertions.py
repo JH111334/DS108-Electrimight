@@ -18,10 +18,12 @@ import pandas as pd
 
 class DataAssertionError(AssertionError):
     """Ngoại lệ riêng cho vi phạm assertions dữ liệu."""
+
     pass
 
 
 # ── Physical Constraints ────────────────────────────────────────────
+
 
 def assert_no_negative_usage(
     df: pd.DataFrame,
@@ -123,6 +125,7 @@ def assert_physical_consistency(
 
 # ── Temporal Constraints ────────────────────────────────────────────
 
+
 def assert_temporal_sorted(
     df: pd.DataFrame,
     date_col: str = "date",
@@ -210,6 +213,7 @@ def assert_nsm_consistency(
 
 # ── Completeness Constraints ────────────────────────────────────────
 
+
 def assert_no_nulls(
     df: pd.DataFrame,
     exclude_cols: Optional[List[str]] = None,
@@ -228,7 +232,9 @@ def assert_no_nulls(
     """
     check_df = df.copy()
     if exclude_cols:
-        check_df = check_df.drop(columns=[c for c in exclude_cols if c in check_df.columns])
+        check_df = check_df.drop(
+            columns=[c for c in exclude_cols if c in check_df.columns]
+        )
     n_null = int(check_df.isnull().sum().sum())
     if n_null > 0:
         msg = f"[ASSERT FAIL] Có {n_null} giá trị null trong DataFrame."
@@ -239,6 +245,7 @@ def assert_no_nulls(
 
 
 # ── Anomaly Constraints ─────────────────────────────────────────────
+
 
 def assert_anomaly_rate_below(
     df: pd.DataFrame,
@@ -261,7 +268,7 @@ def assert_anomaly_rate_below(
         DataAssertionError: Nếu tỷ lệ vượt ngưỡng.
     """
     if labels is None:
-        labels = ["anomaly_idling", "anomaly_leakage", "anomaly_overload"]
+        labels = ["Suspected_Idling", "Suspected_Leakage_Drift", "Suspected_Overload"]
 
     available = [c for c in labels if c in df.columns]
     if not available:
@@ -270,10 +277,7 @@ def assert_anomaly_rate_below(
     any_anomaly = df[available].any(axis=1)
     rate = any_anomaly.mean()
     if rate > threshold:
-        msg = (
-            f"[ASSERT FAIL] Tỷ lệ anomaly {rate:.2%} vượt ngưỡng "
-            f"{threshold:.0%}."
-        )
+        msg = f"[ASSERT FAIL] Tỷ lệ anomaly {rate:.2%} vượt ngưỡng {threshold:.0%}."
         if strict:
             raise DataAssertionError(msg)
         else:
@@ -281,6 +285,7 @@ def assert_anomaly_rate_below(
 
 
 # ── Feature Engineering Constraints ─────────────────────────────────
+
 
 def assert_feature_count(
     df: pd.DataFrame,
@@ -343,7 +348,7 @@ def assert_correlation_preserved(
     if mean_diff > (1 - threshold):
         msg = (
             f"[ASSERT FAIL] Ma trận tương quan sai lệch trung bình "
-            f"{mean_diff:.4f}, vượt ngưỡng {1-threshold:.4f}."
+            f"{mean_diff:.4f}, vượt ngưỡng {1 - threshold:.4f}."
         )
         if strict:
             raise DataAssertionError(msg)
@@ -352,6 +357,7 @@ def assert_correlation_preserved(
 
 
 # ── Orchestrator: Run All Assertions ────────────────────────────────
+
 
 def run_pipeline_assertions(
     df: pd.DataFrame,
@@ -384,13 +390,22 @@ def run_pipeline_assertions(
     # Các assertions chung cho mọi giai đoạn
     checks = [
         ("temporal_sorted", lambda: assert_temporal_sorted(df, strict=strict)),
-        ("no_duplicate_timestamps", lambda: assert_no_duplicate_timestamps(df, strict=strict)),
+        (
+            "no_duplicate_timestamps",
+            lambda: assert_no_duplicate_timestamps(df, strict=strict),
+        ),
         ("nsm_consistency", lambda: assert_nsm_consistency(df, strict=strict)),
         ("no_nulls", lambda: assert_no_nulls(df, strict=strict)),
     ]
 
-    if stage in ("post_cleaning", "post_time_features", "post_wavelet",
-                 "post_physical", "post_labeling", "post_gan"):
+    if stage in (
+        "post_cleaning",
+        "post_time_features",
+        "post_wavelet",
+        "post_physical",
+        "post_labeling",
+        "post_gan",
+    ):
         checks += [
             ("no_negative_usage", lambda: assert_no_negative_usage(df, strict=strict)),
             ("pf_in_range", lambda: assert_pf_in_range(df, strict=strict)),
@@ -398,18 +413,27 @@ def run_pipeline_assertions(
 
     if stage in ("post_physical", "post_labeling", "post_gan"):
         checks += [
-            ("physical_consistency", lambda: assert_physical_consistency(df, strict=strict)),
+            (
+                "physical_consistency",
+                lambda: assert_physical_consistency(df, strict=strict),
+            ),
         ]
 
     if stage in ("post_labeling", "post_gan"):
         checks += [
-            ("anomaly_rate_below", lambda: assert_anomaly_rate_below(df, strict=strict)),
+            (
+                "anomaly_rate_below",
+                lambda: assert_anomaly_rate_below(df, strict=strict),
+            ),
             ("feature_count", lambda: assert_feature_count(df, strict=strict)),
         ]
 
     if stage == "post_gan" and synthetic_df is not None:
         checks += [
-            ("correlation_preserved", lambda: assert_correlation_preserved(df, synthetic_df, strict=strict)),
+            (
+                "correlation_preserved",
+                lambda: assert_correlation_preserved(df, synthetic_df, strict=strict),
+            ),
         ]
 
     for name, check_fn in checks:

@@ -45,14 +45,14 @@ def extract_wavelet_features(
     Returns:
         pd.Series chứa các đặc trưng đã trích xuất.
     """
-    coeffs = pywt.wavedec(series, wavelet=wavelet, level=level)
+    coeffs = pywt.wavedec(np.array(series, copy=True), wavelet=wavelet, level=level)
     features: dict = {}
 
     for i, coeff in enumerate(coeffs):
         label = f"{prefix}_cA" if i == 0 else f"{prefix}_cD{level - i + 1}"
         features[f"{label}_mean"] = float(np.mean(coeff))
         features[f"{label}_std"] = float(np.std(coeff))
-        features[f"{label}_energy"] = float(np.sum(coeff ** 2))
+        features[f"{label}_energy"] = float(np.sum(coeff**2))
         features[f"{label}_max_abs"] = float(np.max(np.abs(coeff)))
 
     return pd.Series(features)

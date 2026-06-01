@@ -28,7 +28,14 @@ from src.silver.wavelet_features import rolling_wavelet_features
 from src.silver.physical_features import build_physical_features
 from src.silver.anomaly_labels import label_all_anomalies
 from src.bronze.weather_loader import integrate_weather
-from src.utils import setup_logging, save_data, RAW_CSV, WEATHER_CSV, SILVER_DIR, GOLD_DIR
+from src.utils import (
+    setup_logging,
+    save_data,
+    RAW_CSV,
+    WEATHER_CSV,
+    SILVER_DIR,
+    GOLD_DIR,
+)
 
 
 class ElectrimightPipeline:
@@ -124,7 +131,9 @@ class ElectrimightPipeline:
 
         self.weather_df, report = integrate_weather(self.clean_df, WEATHER_CSV)
         self.logger.info(f"Weather raw shape: {report['weather_raw_shape']}")
-        self.logger.info(f"Weather resampled shape: {report['weather_resampled_shape']}")
+        self.logger.info(
+            f"Weather resampled shape: {report['weather_resampled_shape']}"
+        )
         self.logger.info(f"Weather features added: {report['weather_features_added']}")
         self.logger.info(f"Merged shape: {report['merged_shape']}")
         self.logger.info(f"Nulls after merge: {report['nulls_after_merge']}")
@@ -182,10 +191,12 @@ class ElectrimightPipeline:
 
         self.labeled_df = label_all_anomalies(self.physical_df)
 
-        n_idling = self.labeled_df["anomaly_idling"].sum()
-        n_leakage = self.labeled_df["anomaly_leakage"].sum()
-        n_overload = self.labeled_df["anomaly_overload"].sum()
-        self.logger.info(f"Idling: {n_idling} | Leakage: {n_leakage} | Overload: {n_overload}")
+        n_idling = self.labeled_df["Suspected_Idling"].sum()
+        n_leakage = self.labeled_df["Suspected_Leakage_Drift"].sum()
+        n_overload = self.labeled_df["Suspected_Overload"].sum()
+        self.logger.info(
+            f"Idling: {n_idling} | Leakage: {n_leakage} | Overload: {n_overload}"
+        )
         return self.labeled_df
 
     # ── Step 7: GAN Augmentation (Optional) ─────────────────────────
