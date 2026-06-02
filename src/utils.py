@@ -19,6 +19,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BRONZE_DIR = PROJECT_ROOT / "data" / "bronze"
 SILVER_DIR = PROJECT_ROOT / "data" / "silver"
 GOLD_DIR = PROJECT_ROOT / "data" / "gold"
+METADATA_DIR = PROJECT_ROOT / "metadata"
+DATASET_METADATA_DIR = METADATA_DIR / "dataset"
+PIPELINE_METADATA_DIR = METADATA_DIR / "pipeline"
 RAW_CSV = BRONZE_DIR / "Steel_industry_data.csv"
 WEATHER_CSV = BRONZE_DIR / "weather_gwangyang_2018.csv"
 PROCESSED_DIR = GOLD_DIR
@@ -56,7 +59,7 @@ def save_data(df: pd.DataFrame, filepath: Path) -> None:
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(filepath, index=False)
+    df.to_csv(filepath, index=False, encoding="utf-8")
 
 
 def load_data(filepath: Path) -> pd.DataFrame:
@@ -69,4 +72,4 @@ def load_data(filepath: Path) -> pd.DataFrame:
     Returns:
         DataFrame đã tải.
     """
-    return pd.read_csv(Path(filepath))
+    return pd.read_csv(Path(filepath), encoding="utf-8")

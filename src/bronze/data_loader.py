@@ -18,15 +18,27 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from src.schema import (
+    ACTIVE_POWER_COL,
+    DEFAULT_METER_SCHEMA,
+    LAGGING_PF_COL,
+    LEADING_PF_COL,
+    MeterSchema,
+    canonicalize_meter_columns,
+)
 from src.utils import RAW_CSV
 
 
-def load_steel_data(filepath: Path = RAW_CSV) -> pd.DataFrame:
+def load_meter_data(
+    filepath: Path = RAW_CSV,
+    schema: MeterSchema | None = None,
+) -> pd.DataFrame:
     """
-    Tai bo du lieu tho tu data/bronze/ (chi doc).
+    Load raw meter data and canonicalize common industrial column names.
 
     Args:
-        filepath: Duong dan den Steel_industry_data.csv.
+        filepath: Path to the source meter CSV.
+        schema: Optional explicit source-to-canonical column mapping.
 
     Returns:
         DataFrame chua du lieu tho.
@@ -40,9 +52,18 @@ def load_steel_data(filepath: Path = RAW_CSV) -> pd.DataFrame:
             f"Khong tim thay tep du lieu: {filepath}\n"
             "Hay dat Steel_industry_data.csv vao thu muc data/bronze/."
         )
-    df = pd.read_csv(filepath)
-    df["date"] = pd.to_datetime(df["date"], dayfirst=True)
-    return df
+    df = pd.read_csv(filepath, encoding="utf-8")
+    return canonicalize_meter_columns(df, schema=schema)
+
+
+def load_steel_data(filepath: Path = RAW_CSV) -> pd.DataFrame:
+    """
+    Load the default UCI Steel dataset.
+
+    This wrapper preserves the public API used by notebooks and tests while the
+    implementation now supports broader industrial meter schemas.
+    """
+    return load_meter_data(filepath, schema=DEFAULT_METER_SCHEMA)
 
 
 def inspect_data(df: pd.DataFrame) -> dict:
@@ -65,7 +86,10 @@ def inspect_data(df: pd.DataFrame) -> dict:
     return report
 
 
-def clean_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
+def clean_data(
+    df: pd.DataFrame,
+    schema: MeterSchema | None = None,
+) -> Tuple[pd.DataFrame, dict]:
     """
     Lam sach du lieu: xu ly gia tri thieu, loai bo ban ghi trung lap,
     dam bao kieu du lieu dung, va xu ly cac van de vat ly dac biet.
@@ -84,7 +108,7 @@ def clean_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         Tuple gom (DataFrame da lam sach, cleaning report dict).
     """
     report: dict = {}
-    df = df.copy()
+    df = canonicalize_meter_columns(df, schema=schema)
 
     # 1. Loai bo ban ghi trung lap
     n_before = len(df)
@@ -99,7 +123,7 @@ def clean_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
 
     # 3. Scale Power Factor tu dang % (0-100) ve he so (0-1)
     # Day la van de CRITICAL phat hien boi data_quality_audit.py
-    pf_cols = ["Lagging_Current_Power_Factor", "Leading_Current_Power_Factor"]
+    pf_cols = [LAGGING_PF_COL, LEADING_PF_COL]
     pf_scaled_count = 0
     for col in pf_cols:
         if col in df.columns:
@@ -126,9 +150,9 @@ def clean_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
 
     # 5. Xac thuc rang buoc vat ly co ban
     # P (Usage_kWh) khong the am
-    n_negative_usage = int((df["Usage_kWh"] < 0).sum())
+    n_negative_usage = int((df[ACTIVE_POWER_COL] < 0).sum())
     if n_negative_usage > 0:
-        df.loc[df["Usage_kWh"] < 0, "Usage_kWh"] = 0
+        df.loc[df[ACTIVE_POWER_COL] < 0, ACTIVE_POWER_COL] = 0
         report["negative_usage_corrected"] = n_negative_usage
 
     # 6. Sap xep theo thoi gian

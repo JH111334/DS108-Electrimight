@@ -34,6 +34,7 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.17}
 \usepackage{subcaption}
+\usepackage{float}
 
 % ---------- Hyphenation ----------
 \hyphenation{op-tical net-works semi-conduc-tor}
@@ -42,8 +43,7 @@
 \begin{document}
 
 % ---------- Title ----------
-\title{Kỹ thuật Trích chọn Đặc trưng Wavelet và Tăng cường GAN \\
-cho Xây dựng Tập dữ liệu Tiêu thụ Điện năng Ngành thép}
+\title{Xây dựng Tập dữ liệu Giàu Đặc trưng cho Phân tích Tiêu thụ Điện năng Ngành thép dựa trên Đặc trưng Thời gian, Wavelet, Vật lý và Nhãn Yếu}
 
 % ---------- Authors ----------
 \author{
@@ -62,7 +62,7 @@ cho Xây dựng Tập dữ liệu Tiêu thụ Điện năng Ngành thép}
 
 % ---------- Abstract ----------
 \begin{abstract}
-Dự báo tiêu thụ điện năng công nghiệp và phân loại rủi ro đòi hỏi các tập dữ liệu chất lượng cao với đặc trưng phong phú. Bài báo này trình bày một pipeline tiền xử lý toàn diện cho tập dữ liệu Tiêu thụ Điện năng Ngành thép, một tập dữ liệu chuỗi thời gian thực tế thu thập từ một nhà máy thép Hàn Quốc. Chúng tôi đề xuất một framework kỹ thuật đặc trưng đa miền bao gồm thống kê miền thời gian (đặc trưng trễ và trượt), đặc trưng miền tần số qua Biến đổi Wavelet rời rạc (DWT) với wavelet Daubechies-4, và các đạo hàm miền vật lý bao gồm Công suất biểu kiến và Góc lệch pha. Hơn nữa, các nhãn bất thường cho hiện tượng chạy không tải, rò rỉ năng lượng, và quá tải cục bộ được tạo ra bằng ngưỡng vật lý dựa trên quy tắc. Để giải quyết mất cân bằng lớp, một Mạng đối kháng Sinh (GAN) được sử dụng để tăng cường dữ liệu lớp thiểu số. Tập dữ liệu đã xử lý mở rộng từ 11 đặc trưng gốc lên hơn 40 đặc trưng kỹ thuật với ba chỉ báo bất thường nhị phân. Thử nghiệm xác nhận rằng các đặc trưng wavelet và vật lý trích xuất có hiệu quả trong việc nắm bắt các hành vi tải không dừng và các dấu hiệu lỗi tiềm ẩn, cung cấp một nền tảng vững chắc cho các mô hình dự báo và phát hiện bất thường phía sau.
+Dự báo tiêu thụ điện năng công nghiệp và phân loại rủi ro đòi hỏi các tập dữ liệu chất lượng cao với đặc trưng phong phú. Bài báo này trình bày một pipeline tiền xử lý toàn diện cho tập dữ liệu Tiêu thụ Điện năng Ngành thép, một tập dữ liệu chuỗi thời gian thực tế thu thập từ một nhà máy thép Hàn Quốc. Chúng tôi đề xuất một framework kỹ thuật đặc trưng đa miền bao gồm thống kê miền thời gian (đặc trưng trễ và trượt), đặc trưng miền tần số qua Biến đổi Wavelet rời rạc (DWT) với wavelet Daubechies-4, và các đạo hàm miền vật lý bao gồm Công suất biểu kiến và Góc lệch pha. Bên cạnh đó, nghiên cứu thiết lập các nhãn yếu dựa trên quy tắc cho các tín hiệu nghi ngờ như chạy không tải, suy giảm hiệu suất dạng drift và quá tải cục bộ. Một module tăng cường dữ liệu dựa trên GAN được khảo sát như thành phần thử nghiệm nhằm đánh giá khả năng cân bằng lớp thiểu số, nhưng không được sử dụng như bằng chứng xác nhận lỗi vận hành. Kết quả cho thấy pipeline mở rộng dữ liệu thô thành một tập đặc trưng giàu ngữ cảnh, hỗ trợ các thí nghiệm downstream về dự báo phụ tải và phân loại nhãn proxy.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -78,7 +78,9 @@ Ngành thép chiếm khoảng 7--9\% lượng phát thải CO$_2$ nhân tạo to
 
 Mặc dù có sẵn các tập dữ liệu năng lượng công nghiệp công khai, các kho ngữ liệu hiện có thường chỉ cung cấp các bản ghi đồng hồ thô mà không có các chỉ báo vật lý phái sinh hoặc chú thích bất thường. Hạn chế này làm giảm khả năng áp dụng của các mô hình học có giám sát cho chẩn đoán lỗi. Hơn nữa, các sự kiện bất thường---chẳng hạn như động cơ chạy không tải, suy giảm cách điện, và quá tải cục bộ---là hiếm, dẫn đến mất cân bằng lớp nghiêm trọng làm giảm hiệu suất bộ phân loại.
 
-Để giải quyết các hạn chế này, bài báo đề xuất một pipeline tiền xử lý và xây dựng tập dữ liệu có hệ thống cho dữ liệu điện ngành thép. Các đóng góp bao gồm ba phần: (i) một framework kỹ thuật đặc trưng đa miền bổ sung các tín hiệu thô với thống kê trễ thời gian, hệ số Biến đổi Wavelet rời rạc (DWT), và các đạo hàm mang ý nghĩa vật lý bao gồm Công suất biểu kiến và Góc lệch pha; (ii) một lược đồ gán nhãn bất thường dựa trên vật lý nhận diện các sự kiện chạy không tải, rò rỉ năng lượng, và quá tải cục bộ; và (iii) một Mạng đối kháng Sinh (GAN) để tăng cường tổng hợp lớp thiểu số nhằm giảm thiểu mất cân bằng dữ liệu.
+Trong thực tế vận hành, các nhà máy có thể đã có relay bảo vệ, cảnh báo SCADA, hoặc hệ thống condition monitoring chuyên dụng để xử lý sự cố điện cấp an toàn. Tuy nhiên, các hệ thống này thường phụ thuộc vào cảm biến tài sản, log bảo trì, hoặc dữ liệu nội bộ khó công khai. Khoảng trống mà nghiên cứu này nhắm tới vì vậy không phải là thay thế hệ thống bảo vệ thời gian thực, mà là xây dựng một pipeline dữ liệu ít phụ thuộc hạ tầng cảm biến chuyên dụng: từ dữ liệu công tơ 15 phút có thể tái lập, bổ sung ngữ cảnh thời tiết, đặc trưng thời gian, wavelet, vật lý, và nhãn weak/proxy có thể kiểm toán cho phân tích offline.
+
+Để giải quyết các hạn chế này, bài báo đề xuất một pipeline tiền xử lý và xây dựng tập dữ liệu có hệ thống cho dữ liệu điện ngành thép. Các đóng góp bao gồm ba phần: (i) một framework kỹ thuật đặc trưng đa miền bổ sung các tín hiệu thô với thống kê trễ thời gian, hệ số Biến đổi Wavelet rời rạc (DWT), và các đạo hàm mang ý nghĩa vật lý bao gồm Công suất biểu kiến và Góc lệch pha; (ii) một lược đồ gán nhãn bất thường dựa trên vật lý nhận diện các sự kiện chạy không tải, rò rỉ năng lượng, và quá tải cục bộ; và (iii) một đánh giá sơ bộ về tăng cường dữ liệu bằng GAN cho các mẫu proxy anomaly, nhằm khảo sát khả năng cân bằng lớp thiểu số mà không diễn giải synthetic samples như bằng chứng lỗi vận hành thật.
 
 Phần còn lại của bài báo được tổ chức như sau. Phần~\ref{sec:related} tổng quan các nghiên cứu liên quan. Phần~\ref{sec:methodology} trình bày chi tiết phương pháp đề xuất. Phần~\ref{sec:results} trình bày kết quả và thảo luận. Cuối cùng, Phần~\ref{sec:conclusion} kết luận bài báo.
 
@@ -89,33 +91,42 @@ Phần còn lại của bài báo được tổ chức như sau. Phần~\ref{sec
 
 \subsection{Dự báo Tiêu thụ Điện năng Công nghiệp}
 
-Dự báo tải công nghiệp đã được nghiên cứu rộng rãi sử dụng các phương pháp thống kê và học máy. Các mô hình tích hợp trung bình di động tự hồi quy (ARIMA) cung cấp các baseline có thể diễn giải nhưng không nắm bắt được động lực phi tuyến~\cite{hippert2001}. Gần đây hơn, các kiến trúc học sâu như mạng Bộ nhớ Ngắn hạn Dài (LSTM) đã chứng minh độ chính xác vượt trội trong việc mô hình hóa các phụ thuộc thời gian~\cite{bouktif2020}. Tuy nhiên, các nghiên cứu này chủ yếu dựa vào dữ liệu tổng hợp cấp hệ thống, trong khi các tải công nghiệp người dùng cuối---đặc biệt trong sản xuất thép---thể hiện các biến động đột ngột do lập lịch lò và vận hành máy cán~\cite{khuntia2016}.
+Dự báo tải công nghiệp đã được nghiên cứu rộng rãi sử dụng các phương pháp thống kê và học máy. Các mô hình như ARIMA cung cấp baseline có thể diễn giải nhưng không nắm bắt được động lực phi tuyến~\cite{hippert2001}, trong khi LSTM đã chứng minh độ chính xác vượt trội~\cite{bouktif2020}. Đặc biệt trên chính tập dữ liệu Tiêu thụ Điện năng Ngành thép, Sathishkumar et al.~\cite{sathishkumar2020} đã áp dụng Random Forest và SVM, chứng minh rằng quan hệ giữa biến điện năng và loại tải (\texttt{Load\_Type}) mang tính phi tuyến cao. Gần đây, Diaconu~\cite{diaconu2025} cũng nhấn mạnh sự cần thiết của việc chia tập kiểm thử theo thời gian (time-aware validation) để tránh rò rỉ dữ liệu. Tuy nhiên, các nghiên cứu này chủ yếu tối ưu sai số dự báo thuần túy mà chưa khai thác phần dư (residual) làm tín hiệu bất thường.
+
+\subsection{Biến Khí tượng Ngoại sinh cho Dự báo Tải}
+
+Ngoài lịch sử tiêu thụ, nhiều mô hình xem điều kiện khí tượng như biến ngoại sinh. Amjady và Keynia~\cite{amjady2011} mô tả đây là ánh xạ phi tuyến phụ thuộc đồng thời vào tải quá khứ và thời tiết. Sobhani et al.~\cite{sobhani2019weather} chỉ ra rằng nhiệt độ, độ ẩm và tốc độ gió đóng góp thông tin quan trọng. Tuy nhiên, với tải công nghiệp, Gekeler et al.~\cite{gekeler2025weather} cho thấy lợi ích của thời tiết nhỏ hơn tải dân dụng vì lịch sản xuất chi phối mạnh hơn. Do đó, trong nghiên cứu này, dữ liệu khí tượng từ Open-Meteo~\cite{openmeteo2026} được dùng như lớp \textit{contextual enrichment}: bổ sung ngữ cảnh môi trường chứ không giả định thời tiết là nguyên nhân chính của biến động tải.
+
+\subsection{Phát hiện Bất thường và Khoảng trống Data-Centric}
+
+Các giải pháp condition monitoring hiện đại có thể phát hiện quá tải hoặc suy giảm thiết bị bằng cảm biến chuyên dụng~\cite{hoffmann2020switchgear}, hoặc qua khai phá tín hiệu không xâm lấn (NILM)~\cite{rashid2019nilm}. Trong bối cảnh thiếu nhãn lỗi và cảm biến, các phương pháp không giám sát hoặc dựa trên sai số tái tạo chuỗi thời gian~\cite{mao2024} thường được áp dụng. Sarr et al.~\cite{sarr2024} cũng chứng minh rằng hệ số công suất (power factor) là tín hiệu nhạy bén để phát hiện bất thường thay vì chỉ dùng công suất tác dụng.
+
+Khoảng trống của nghiên cứu này nằm giữa hai cực: hệ thống SCADA có độ tin cậy cao nhưng khép kín, và dữ liệu công tơ công khai nhưng thiếu nhãn thật. Để tránh ngộ nhận lỗi vật lý (\textit{overclaim}), bài báo định hướng theo phương pháp \textit{data-centric}: xây dựng proxy labels (như nghi ngờ chạy không tải, nghi ngờ quá tải) dựa trên luật vật lý thay vì khẳng định lỗi phần cứng. Đây là benchmark dữ liệu cho phân tích offline, làm giàu bằng wavelet và đặc trưng vật lý để sàng lọc rủi ro ứng viên.
 
 \subsection{Biến đổi Wavelet trong Phân tích Chuỗi thời gian}
 
-Phân tích miền tần số bổ sung cho các phương pháp miền thời gian bằng cách tiết lộ các hành vi thoáng qua vô hình đối với thống kê trượt. Biến đổi Fourier Nhanh (FFT) phân rã tín hiệu thành các thành phần tần số nhưng hy sinh sự định vị thời gian. Ngược lại, Biến đổi Wavelet rời rạc (DWT) sử dụng các wavelet mẹ được chia tỷ lệ và dịch chuyển để nắm bắt cả thông tin tần số và thời gian, làm cho nó đặc biệt phù hợp cho các tín hiệu tải công nghiệp không dừng~\cite{mallat1989}. Zhang et al.~\cite{zhang2024} đã chứng minh rằng một mô hình lai DWT-LSTM đạt MAPE thấp tới 0,59\% cho dự báo tải ngắn hạn.
+Phân tích miền tần số bổ sung cho phương pháp miền thời gian bằng cách tiết lộ hành vi thoáng qua vô hình với thống kê trượt. Khác với FFT hy sinh định vị thời gian, Biến đổi Wavelet rời rạc (DWT) sử dụng wavelet mẹ để nắm bắt cả tần số và thời gian, rất phù hợp cho tải công nghiệp không dừng~\cite{mallat1989}. Zhang et al.~\cite{zhang2024} đã chứng minh mô hình lai DWT-LSTM đạt MAPE rất thấp cho dự báo tải ngắn hạn.
 
 \subsection{GAN và Tăng cường Dữ liệu Tổng hợp}
 
-Mất cân bằng lớp tạo ra một thách thức dai dẳng trong phát hiện bất thường, nơi các sự kiện bất thường chiếm chưa đến 1\% các quan sát~\cite{chandola2009}. Các Mạng đối kháng Sinh (GAN), được giới thiệu bởi Goodfellow et al.~\cite{goodfellow2014}, đã nổi lên như một paradigm mạnh mẽ để tạo dữ liệu tổng hợp. Đối với các ứng dụng chuỗi thời gian, Yoon et al.~\cite{yoon2019} đã đề xuất TimeGAN, kết hợp huấn luyện đối kháng với mô hình hóa chuỗi có giám sát để bảo toàn động lực thời gian.
+Mất cân bằng lớp là thách thức dai dẳng trong phát hiện bất thường, nơi sự kiện lạ chiếm dưới 1\%~\cite{chandola2009}. Mạng đối kháng Sinh (GAN)~\cite{goodfellow2014} đã nổi lên như paradigm mạnh mẽ để tạo dữ liệu tổng hợp. Đối với chuỗi thời gian, Yoon et al.~\cite{yoon2019} đề xuất TimeGAN, và Tang et al.~\cite{tang2025} chứng minh hiệu quả tăng cường dữ liệu năng lượng, giúp bảo toàn động lực thời gian cho các mô hình phân loại phía sau.
 
 \begin{table}[htbp]
-\caption{SO SÁNH CÁC NGHIÊN CỨU LIÊN QUAN}
+\caption{SO SÁNH CÁC NGHIÊN CỨU LIÊN QUAN VÀ KHOẢNG TRỐNG}
 \label{tab:related}
 \centering
-\begin{tabular}{@{}ccccccc@{}}
+\begin{tabular}{@{}p{1.5cm}p{3cm}p{3cm}@{}}
 \toprule
-Tài liệu & Dự báo & DWT & Vật lý & Bất thường & GAN & Miền \\
+Nghiên cứu & Phương pháp / Trọng tâm & Hạn chế / Khoảng trống \\
 \midrule
-\cite{hippert2001} & Có & Không & Không & Không & Không & Chung \\
-\cite{zhang2024} & Có & Có & Không & Không & Không & Lưới điện \\
-\cite{tang2025} & Không & Không & Không & Không & Có & Sản xuất \\
-Ours & Có & Có & Có & Có & Có & Thép \\
+\cite{sathishkumar2020, diaconu2025} & Dự báo tải bằng ML/Ensemble trên dữ liệu Thép & Thiếu định nghĩa và gán nhãn bất thường cụ thể.\\
+\cite{mao2024} & Phát hiện qua sai số tái tạo chuỗi thời gian & Residual lớn có thể do chuyển ca, cần thêm ngữ cảnh. \\
+\cite{sarr2024} & Phân tích bất thường hệ số công suất & Thiếu ngưỡng xác thực từ cấp độ thiết bị (asset-level).\\
+\cite{zhang2024} & Dự báo lai DWT-LSTM & Tập trung lưới điện chung, thiếu đặc trưng vật lý nhà máy.\\
+\textbf{Ours} & \textbf{Data-centric Feature Engineering + Proxy Labels} & \textbf{Lấp khoảng trống bằng nhãn weak có diễn giải vật lý.} \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-
 % =============================================================================
 \section{PHƯƠNG PHÁP}
 \label{sec:methodology}
@@ -123,11 +134,13 @@ Ours & Có & Có & Có & Có & Có & Thép \\
 
 \subsection{Tổng quan Tập dữ liệu}
 
-Tập dữ liệu sử dụng trong nghiên cứu này là tập dữ liệu Tiêu thụ Điện năng Ngành thép~\cite{uci2023}, có sẵn công khai từ Kho lưu trữ Học máy UCI. Nó chứa 35.040 quan sát được ghi lại tại các khoảng 15 phút từ một nhà máy sản xuất thép Hàn Quốc.
+Nghiên cứu sử dụng hai nguồn dữ liệu chính trong năm 2018. Nguồn thứ nhất là tập dữ liệu Tiêu thụ Điện năng Ngành thép~\cite{uci2023} ghi nhận tần suất 15 phút (35.040 quan sát, không có dòng trùng lặp hay timestamp khuyết thiếu). Nguồn thứ hai là dữ liệu khí tượng từ Open-Meteo API cho khu vực Gwangyang (8.760 quan sát theo giờ), bao gồm nhiệt độ, lượng mưa, độ ẩm tương đối và tốc độ gió.
 
 \subsection{Tiền xử lý Dữ liệu}
 
-Giai đoạn tiền xử lý bao gồm kiểm tra dữ liệu, loại bở trùng lặp, và nội suy giá trị thiếu. Đối với dữ liệu chuỗi thời gian, nội suy tuyến tính được áp dụng:
+Mặc dù dữ liệu điện năng không có giá trị khuyết thiếu (missing values), các biến công suất phản kháng có tỷ lệ giá trị bằng 0 khá cao (ví dụ: \texttt{Leading\_kVarh} chiếm 67,38\%, \texttt{Lagging\_kVarh} chiếm 20,53\%). Trong bối cảnh vận hành lưới điện, các giá trị này phản ánh trạng thái thực tế của tải thay vì lỗi cảm biến, do đó chúng được giữ nguyên để tính toán các đặc trưng vật lý. 
+
+Để đồng bộ hai nguồn dữ liệu, dữ liệu thời tiết được resample từ tần suất 1 giờ sang 15 phút bằng nội suy tuyến tính trước khi hợp nhất (merge) theo timestamp, tạo thành một tập dữ liệu tổng hợp gồm 35.040 dòng. Đối với dữ liệu chuỗi thời gian, nội suy tuyến tính được áp dụng:
 \begin{equation}
 y(t) = y(t_1) + \frac{y(t_2) - y(t_1)}{t_2 - t_1}(t - t_1)
 \label{eq:interp}
@@ -143,7 +156,7 @@ Các kiểm tra chính bao gồm:
     \item \textbf{Nhất quán thời gian:} Dữ liệu sắp xếp tăng dần, không trùng lặp timestamp, NSM khớp với \texttt{date}.
     \item \textbf{Toàn vẹn:} Không có giá trị null sau khi nội suy.
     \item \textbf{Tỷ lệ bất thường:} Tổng tỷ lệ anomaly $< 10\%$.
-    \item \textbf{Số lượng đặc trưng:} $\ge 40$ cột sau feature engineering.
+    \item \textbf{Số lượng đặc trưng:} 64 cột sau toàn bộ feature engineering và labeling.
 \end{itemize}
 
 \begin{table}[htbp]
@@ -158,11 +171,45 @@ Giai đoạn & Các khẳng định được kích hoạt \\
 Sau làm sạch & $P \ge 0$, PF $\in [0,1]$, thời gian tăng dần, không null \\
 Sau đặc trưng thời gian & Kiểm tra lại như trên \\
 Sau đặc trưng vật lý & Thêm $S^2 \approx P^2 + Q^2$ \\
-Sau gán nhãn & Thêm tỷ lệ anomaly $< 10\%$, số cột $\ge 40$ \\
+Sau gán nhãn & Thêm tỷ lệ anomaly $< 10\%$, số cột cuối cùng bằng 64 \\
 Sau GAN & Thêm bảo toàn ma trận tương quan real vs synthetic \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{EDA hỗ trợ Quyết định Tiền xử lý và Kỹ thuật Đặc trưng}
+\label{subsec:eda_decisions}
+
+Một điểm quan trọng của Electrimight là các quyết định tiền xử lý không được chọn tùy ý sau khi đã nhìn kết quả mô hình, mà được dẫn dắt bởi các quan sát EDA trên dữ liệu thô, dữ liệu thời tiết và các kiểm tra sau pipeline. Bảng~\ref{tab:eda_decisions} tóm tắt mối liên hệ giữa quan sát dữ liệu, quyết định kỹ thuật và tác dụng downstream. Các số liệu trong bảng được sinh lại bằng script \texttt{src/eda\_decision\_support.py}, xuất ra \texttt{reports/eda\_decision\_support.md} và \texttt{reports/eda\_decision\_support.json}.
+
+Trước hết, dữ liệu điện có tần suất 15 phút với 35.040 mẫu, trong khi dữ liệu thời tiết từ Open-Meteo có tần suất 1 giờ với 8.760 mẫu. Nếu merge trực tiếp hai nguồn dữ liệu này, mỗi giờ thời tiết chỉ khớp với một trong bốn timestamp điện và làm mất ngữ cảnh của ba mốc còn lại. Vì vậy, weather được resample từ 1 giờ xuống 15 phút trước khi merge, nhằm đưa hai nguồn về cùng lưới thời gian và bảo toàn row alignment của dữ liệu điện.
+
+Lựa chọn nội suy tuyến tính xuất phát từ bản chất của các biến thời tiết ở thang 15 phút: nhiệt độ, độ ẩm, gió và mưa thường thay đổi trơn hơn so với biến tải điện công nghiệp. Nội suy tuyến tính vì vậy là một lựa chọn dễ kiểm toán, đủ đơn giản cho dữ liệu ngoại sinh theo giờ, và tránh các giả định mạnh hơn của spline/Kriging hoặc các phương pháp imputation phức tạp như MICE. Đồng thời, pipeline không dùng back-fill để tránh đưa thông tin thời tiết tương lai vào các timestamp quá khứ.
+
+EDA trên chuỗi \texttt{Usage\_kWh} cho thấy tải điện có chu kỳ theo thời điểm trong ngày và phụ thuộc mạnh vào lịch sử gần. Điều này dẫn đến nhóm đặc trưng thời gian gồm lag 15 phút, 30 phút, 1 giờ, 24 giờ, rolling statistics và mã hóa chu kỳ \texttt{NSM} bằng sin/cos. Kết quả ablation xác nhận quyết định này: cấu hình \textit{Raw + Time} đạt RMSE thấp nhất trong bài toán dự báo 1 giờ, cho thấy time features là nhóm ưu tiên đầu tiên cho load forecasting ngắn hạn.
+
+Các quan sát về công suất phản kháng và power factor cũng ảnh hưởng trực tiếp đến thiết kế feature. Tỷ lệ giá trị bằng 0 của \texttt{Leading\_Current\_Reactive\_Power\_kVarh} rất cao, nhưng trong bối cảnh tải công nghiệp đây là tín hiệu về trạng thái cảm/kháng của hệ thống chứ không nhất thiết là missing value. Do đó các giá trị 0 được giữ lại để tính $Q_{net}$, công suất biểu kiến $S$ và góc lệch pha $\varphi$, đồng thời hỗ trợ diễn giải các proxy labels như idling hoặc overload.
+
+Cuối cùng, EDA sau labeling cho thấy \texttt{anomaly\_any} chỉ chiếm 2.388/35.040 mẫu, tương đương 6,815\%. Mất cân bằng lớp này là lý do thử nghiệm FC-GAN như một baseline augmentation cho minority class. Tuy nhiên, validation GAN cho thấy mean/std tương đối gần dữ liệu thật nhưng correlation MAE vẫn còn đáng kể; vì vậy synthetic samples chỉ được diễn giải như thử nghiệm augmentation, không phải bằng chứng xác nhận lỗi vận hành thật.
+
+\begin{table*}[htbp]
+\caption{EDA-DRIVEN DESIGN DECISIONS TRONG PIPELINE ELECTRIMIGHT}
+\label{tab:eda_decisions}
+\centering
+\small
+\begin{tabular}{@{}p{3.2cm}p{5.2cm}p{6.2cm}@{}}
+\toprule
+Quyết định & Bằng chứng EDA & Tác dụng trong pipeline \\
+\midrule
+Resample weather 1h $\rightarrow$ 15 phút & Electricity có 35.040 mẫu 15 phút; weather có 8.760 mẫu theo giờ. & Đưa hai nguồn về cùng timestamp grid, giữ đủ số dòng điện và tránh merge lệch hàng. \\
+Chọn linear interpolation & Weather là biến ngoại sinh thay đổi tương đối trơn ở thang 15 phút. & Tạo giá trị weather 15 phút dễ kiểm toán, không dùng back-fill tương lai và không cần spline/MICE. \\
+Tạo time features & Tải điện có chu kỳ ngày và phụ thuộc lịch sử gần. & Lag, rolling và sin/cos giúp \textit{Raw + Time} đạt RMSE thấp nhất cho forecasting 1 giờ. \\
+Giữ zero reactive power & Leading reactive zero cao phản ánh trạng thái vận hành, không chỉ là lỗi dữ liệu. & Giữ tín hiệu vật lý để tính $Q_{net}$, $S$, $\varphi$ và giải thích proxy labels. \\
+Thử FC-GAN augmentation & \texttt{anomaly\_any} chỉ chiếm 6,815\% toàn bộ dataset. & Cân bằng thử nghiệm minority class, nhưng chỉ xem là baseline augmentation. \\
+Không overclaim GAN & Mean/std error chấp nhận được nhưng correlation MAE còn lệch. & Synthetic data không thay thế dữ liệu thật và không xác nhận lỗi vận hành. \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \subsection{Kỹ thuật Đặc trưng Miền Thời gian}
 
@@ -197,82 +244,106 @@ các đặc trưng wavelet tại mỗi bước thời gian.
 
 \subsection{Kỹ thuật Đặc trưng Miền Vật lý}
 
-Để làm phong phú tập dữ liệu với các đại lượng điện năng mang tính vật lý,
-hai biến phái sinh quan trọng --- Công suất biểu kiến ($S$) và Góc lệch pha
-($\varphi$) --- được tính toán từ các biến đo công suất thô.
-Những đặc trưng này giúp phơi bày các chế độ vận hành bất thường mà công suất tác dụng ($P$) đơn thuần không thể phát hiện,
-chẳng hạn như hiện tượng kẹt rô-to hoặc rò rỉ cách điện tiến triển,
-từ đó cung cấp các chỉ báo hữu ích cho mô hình dự báo tải và phân loại rủi ro.
+Để làm phong phú tập dữ liệu, hai biến phái sinh mang ý nghĩa vật lý --- Công suất biểu kiến ($S$) và Góc lệch pha ($\varphi$) --- được tính toán từ các biến đo lường thô. Những đặc trưng này giúp phơi bày các chế độ vận hành (như sự mất cân bằng phản kháng) mà công suất tác dụng ($P$) đơn thuần không thể phản ánh trọn vẹn, từ đó cung cấp tín hiệu ngữ cảnh cho mô hình dự báo và phân loại phía sau.
 
 \textbf{1) Công suất biểu kiến ($S$):}
-Công suất biểu kiến là độ lớn của công suất phức trong mạch điện xoay chiều.
-Đại lượng này quyết định giới hạn chịu tải nhiệt và cơ học của dây cáp, máy biến áp và thiết bị đóng cắt.
-Khi công suất tác dụng không đổi nhưng công suất phản kháng tăng (do kẹt rô-to hoặc bão hòa từ trường),
-$S$ sẽ phình to --- đây là tín hiệu cảnh báo quá dòng.
+Công suất biểu kiến là độ lớn của công suất phức trong mạch điện xoay chiều, quyết định giới hạn chịu tải của máy biến áp. Khi công suất tác dụng ($P$) không đổi nhưng công suất phản kháng ròng ($Q_{net}$) tăng cao, $S$ sẽ phình to. Thay vì kết luận trực tiếp đây là lỗi phần cứng, sự gia tăng của $S$ được sử dụng như một tín hiệu cảnh báo sớm về trạng thái vận hành kém hiệu quả hoặc nghi ngờ quá tải cục bộ.
 
 \textbf{Định nghĩa:}
 \begin{equation}
-S = \sqrt{P^2 + Q^2}
+S = \sqrt{P^2 + Q_{net}^2}
 \label{eq:apparent}
 \end{equation}
-Trong đó $P = \text{Usage\_kWh}$ là công suất tác dụng (kW),
-và $Q = \text{Lagging\_Current\_Reactive.Power\_kVarh}$ là công suất phản kháng trễ (kVar).
+Trong đó $P = \text{Usage\_kWh}$ là công suất tác dụng, và $Q_{net} = \text{Lagging\_kVarh} - \text{Leading\_kVarh}$ là công suất phản kháng ròng.
 
 \textbf{2) Góc lệch pha ($\varphi$):}
-Góc lệch pha định lượng độ dịch thời gian giữa sóng điện áp và dòng điện.
-Đại lượng này cung cấp thang đo tuyến tính sắc nét hơn Hệ số công suất (PF),
-đặc biệt khi phụ tải trở nên phi tuyến hoặc mang tính cảm kháng cao.
+Góc lệch pha định lượng độ dịch thời gian giữa sóng điện áp và dòng điện, cung cấp thang đo tuyến tính sắc nét hơn so với Hệ số công suất (PF).
 
 \textbf{Định nghĩa:}
 \begin{equation}
-\varphi = \arccos(\text{PF})
+\varphi = \arccos(\text{PF\_abs})
 \label{eq:phase}
 \end{equation}
-Trong đó $\text{PF} = \text{Lagging\_Current\_Power\_Factor}$ được giới hạn trong khoảng $[0, 1]$
-trước khi áp dụng hàm $\arccos$ nhằm đảm bảo tính ổn định số học.
-Kết quả $\varphi$ được biểu diễn bằng radian.
+Trong đó $\text{PF\_abs} = \text{Lagging\_Current\_Power\_Factor}$ được chuẩn hóa về khoảng $[0, 1]$ trước khi áp dụng hàm $\arccos$. Kết quả $\varphi$ được biểu diễn bằng radian.
 
 \begin{table}[htbp]
-\caption{CÁC ĐẶC TRƯNG MIỀN VẬT LÝ}
-\label{tab:physical}
+\caption{CÁC ĐẶC TRƯNG MIỀN VẬT LÝ VÀ NGỮ CẢNH PHÁI SINH}
+\label{tab:derived_features}
 \centering
 \small
-\begin{tabular}{@{}p{2.2cm}cp{2.2cm}cp{3.8cm}@{}}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lp{3.5cm}p{2.5cm}@{}}
 \toprule
-Đặc trưng & Ký hiệu & Công thức & Đơn vị & Ý nghĩa vật lý \\
+Đặc trưng & Logic / Công thức & Ý nghĩa \\
 \midrule
-Công suất biểu kiến & $S$ & $\sqrt{P^2+Q^2}$ & kVA & Tổng công suất đặt lên hệ thống truyền tải; cảnh báo quá tải sớm. \\
-Góc lệch pha & $\varphi$ & $\arccos(\mathrm{PF})$ & rad & Thang đo tuyến tính cho tính phi tuyến của phụ tải; phân biệt rõ hơn PF gần 1. \\
+$Q_{net}$ & Lagging\_kVarh - Leading\_kVarh & Công suất phản kháng ròng \\
+$S$ & $\sqrt{P^2 + Q_{net}^2}$ & Tổng tải biểu kiến \\
+PF\_signed & Đổi dấu PF khi Leading > Lagging & Phân biệt tải cảm/dung \\
+THI & Chỉ số nhiệt-ẩm kết hợp T và RH & Đánh giá môi trường \\
+Thermal\_Lag\_6h & Nhiệt độ trượt trễ 24 bước & Ảnh hưởng trễ nhiệt (6 giờ) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \textbf{Giải thích vật lý và ứng dụng:}
-Trong bối cảnh nhà máy thép, cả $S$ và $\varphi$ đóng vai trò chỉ báo nhạy với bất thường.
-Sự gia tăng đồng thời của $S$ kèm theo $\varphi$ tăng nhanh thường báo hiệu quá tải cảm kháng hoặc hởng hóc cách điện.
-Ngược lại, $S$ tăng trong khi $\varphi$ ổn định có thể chỉ ra quá tải thuần trở.
-Bằng cách đưa các kênh phái sinh từ vật lý vào không gian đặc trưng,
-các mô hình dự báo và phân loại phía sau sẽ có thêm các giả thiết tiên nghiệm
-mà các đặc trưng thuần thống kê (trung bình trượt, năng lượng sóng) không thể cung cấp.
+Sự gia tăng đồng thời của $S$ kèm theo $\varphi$ lớn thường báo hiệu hệ thống đang rút một lượng lớn công suất phản kháng, có thể do tải cảm hoạt động dưới mức tối ưu. Bằng cách đưa các kênh phái sinh này vào không gian đặc trưng, các mô hình học máy sẽ có thêm dữ kiện tiên nghiệm mang tính vật lý mà các đặc trưng thuần thống kê (trung bình trượt, độ lệch chuẩn) không thể cung cấp. Các đặc trưng vật lý được tính toán trước bước gán nhãn bất thường nhằm đảm bảo logic của các proxy labels có thể trực tiếp tham chiếu đến $S$ và $Q_{net}$.
 
-\textbf{Tích hợp với pipeline:}
-Các đặc trưng vật lý được tính toán sau giai đoạn trích xuất miền thời gian và miền tần số,
-và trước bước gán nhãn bất thường.
-Thứ tự này đảm bảo các quy tắc bất thường dựa trên vật lý (chạy không tải, rò rỉ, quá tải)
-có thể trực tiếp tham chiếu đến $S$ và $\varphi$ cùng với các biến công suất gốc.
+\subsection{Tích hợp Dữ liệu Khí tượng}
 
-\subsection{Chiến lược Gán nhãn Bất thường}
+Dữ liệu khí tượng từ Open-Meteo API~\cite{openmeteo2026} (tọa độ 34,94°N, 127,70°E)
+được tích hợp để cung cấp ngữ cảnh môi trường cho tiêu thụ điện.
+Do dữ liệu khí tượng gốc có tần suất 1 giờ trong khi dữ liệu điện là 15 phút,
+chúng tôi thực hiện nội suy tuyến tính để resample về 15 phút:
+\begin{equation}
+w(t) = w(t_1) + \frac{w(t_2) - w(t_1)}{t_2 - t_1}(t - t_1), \quad t \in [t_1, t_2]
+\label{eq:weather_interp}
+\end{equation}
+trong đó $w$ là biến khí tượng (nhiệt độ, độ ẩm, tốc độ gió).
 
-Ba loại bất thường được định nghĩa bằng các ngưỡng dựa trên vật lý:
-\begin{itemize}
-\item \textbf{Chạy không tải:} Tải nhẹ trong giờ nghỉ với tiêu thụ cao và PF $< 0{,}5$
-\item \textbf{Rò rỉ:} Trung bình trượt vượt quá baseline 5\%
-\item \textbf{Quá tải:} Tiêu thụ vượt quá $Q_3 + 3\times$IQR với công suất phản kháng cao và PF $< 0{,}7$
-\end{itemize}
+Các đặc trưng khí tượng phái sinh bao gồm nhiệt độ trung bình 24 giờ,
+chênh lệch nhiệt so với cùng thời điểm hôm trước, chỉ số nhiệt cảm nhận,
+và tương tác nhiệt-ẩm. Merge được thực hiện bằng \texttt{left\_join} trên
+cột \texttt{date}, đảm bảo không làm thay đổi số dòng của dữ liệu điện và
+không sử dụng back-fill nhằm tránh đưa thông tin thời tiết tương lai vào quá khứ.
+
+\subsection{Chiến lược Gán nhãn Bất thường (Proxy Labeling)}
+
+Do dữ liệu công khai thiếu vắng nhật ký bảo trì hoặc cảnh báo SCADA từ thiết bị thực tế, chúng tôi thiết lập một bộ quy tắc gán nhãn yếu dựa trên vật lý (\textit{physics-informed weak labels}). Các nhãn này đóng vai trò là "tín hiệu nghi ngờ" phục vụ cho đánh giá offline. Các ngưỡng gán nhãn được lấy cảm hứng từ các kinh nghiệm quản lý năng lượng thực tiễn, thay vì đóng vai trò như một bài kiểm định tuân thủ tiêu chuẩn (compliance test) khắt khe.
+
+Mỗi nhãn được tạo ra kèm theo một điểm tin cậy (Confidence Score) $\in [0, 1]$ dựa trên mức độ vi phạm các ràng buộc, giúp hỗ trợ gán trọng số (\textit{sample weight}) cho các mô hình học máy phía sau. Bảng~\ref{tab:labeling_rules} tóm tắt các quy tắc cốt lõi; chi tiết hệ số tính toán được công khai trong \texttt{metadata/dataset/LABELING\_GUIDELINE.md} của dự án.
+
+\begin{table}[htbp]
+\caption{TÓM TẮT QUY TẮC GÁN NHÃN BẤT THƯỜNG DỰA TRÊN NGỮ CẢNH}
+\label{tab:labeling_rules}
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}p{3.0cm}p{5.0cm}@{}}
+\toprule
+Nhãn nghi ngờ (Proxy) & Điều kiện cốt lõi (AND logic) \\
+\midrule
+\textbf{Suspected Idling} & 
+$\bullet$ \texttt{Load\_Type} = Light\_Load \newline
+$\bullet$ $P >$ Median của nhóm Light\_Load \newline
+$\bullet$ Hệ số công suất $\mathrm{PF} < 0{,}50$ \\
+\midrule
+\textbf{Suspected Drift} & 
+$\bullet$ Trung bình trượt 4 tuần của Công suất biểu kiến ($S$) tăng $\ge 5\%$ so với baseline ban đầu \\
+\midrule
+\textbf{Suspected Overload} & 
+$\bullet$ $S >$ Percentile 99.5 (Cực trị) \newline
+$\bullet$ $\mathrm{PF} < 0{,}70$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Tăng cường Dữ liệu dựa trên GAN}
 
-Một GAN fully connected được huấn luyện để tạo mẫu tổng hợp lớp thiểu số.
+Một GAN fully connected được huấn luyện để tạo mẫu tổng hợp cho nhóm proxy anomaly,
+nhằm khảo sát khả năng cân bằng dữ liệu lớp thiểu số trong các thí nghiệm downstream.
+Module này được xem là thành phần thử nghiệm phụ của pipeline, không phải mô hình phát hiện
+bất thường chính và không được dùng để xác nhận lỗi vận hành thực tế.
+
 Kiến trúc generator và discriminator tuân theo các mạng fully connected tiêu chuẩn
 với hàm kích hoạt LeakyReLU. Mục tiêu minimax là:
 \begin{equation}
@@ -280,6 +351,10 @@ với hàm kích hoạt LeakyReLU. Mục tiêu minimax là:
 \mathbb{E}_{z}[\ln(1-D(G(z)))]
 \label{eq:gan}
 \end{equation}
+
+Do dữ liệu gốc có cấu trúc chuỗi thời gian, FC-GAN chỉ được sử dụng như baseline tăng cường
+dữ liệu dạng bảng. Các kiến trúc chuyên biệt cho chuỗi thời gian như TimeGAN được để lại cho
+hướng nghiên cứu tương lai.
 
 \subsection{Tích hợp Pipeline}
 
@@ -298,20 +373,20 @@ Pandas, Scikit-learn, Matplotlib.
 \subsection{Chia tách Tập dữ liệu}
 
 Tập dữ liệu đầy đủ: 35.040 mẫu.
-Huấn luyện GAN: 80\% mẫu bình thường.
-Không chia tách kiểm tra (bài báo này tập trung vào tiền xử lý).
+Huấn luyện GAN: 2.388 mẫu bất thường ứng viên (\texttt{anomaly\_any=True}) với seed 42, 2.000 epoch, và sinh 500 mẫu synthetic.
+Bài báo này tập trung vào tiền xử lý và validation dữ liệu; mọi mô hình downstream cần chia train/test theo thời gian để tránh leakage.
 
 \subsection{Kiểm tra rò rỉ dữ liệu}
 
-Một cuộc audit toàn diện được thực hiện để đảm bảo \textit{zero data leakage} trong pipeline tiền xử lý. Các điểm kiểm tra bao gồm:
+Một cuộc audit được thực hiện để giảm thiểu rủi ro \textit{data leakage} trong các bước tiền xử lý và thiết lập thí nghiệm. Các điểm kiểm tra bao gồm:
 
 \begin{enumerate}
     \item \textbf{Rolling window:} Xác nhận \texttt{center=False} trong mọi hàm tính rolling statistics. Việc sử dụng \texttt{center=True} sẽ đưa thông tin tương lai vào giá trị hiện tại, gây leakage nghiêm trọng.
     \item \textbf{DWT window:} Kiểm tra cửa sổ wavelet chỉ bao gồm $[t-w+1, t]$ (quá khứ + hiện tại), không có look-ahead.
     \item \textbf{Lag features:} Xác nhận chỉ sử dụng \texttt{shift(lag)} với $\text{lag} > 0$ (nhìn về quá khứ).
     \item \textbf{Weather merge:} Xác nhận không sử dụng \texttt{bfill} (back-fill) --- chỉ dùng dữ liệu thời tiết đã quan sát tại hoặc trước timestamp.
-    \item \textbf{GAN scaler:} \texttt{MinMaxScaler.fit\_transform()} được fit trên toàn bộ dữ liệu trước khi huấn luyện GAN. Điều này \textbf{không} gây leakage cho mô hình downstream vì: (i) downstream model sẽ fit scaler riêng trên tập train; (ii) scaler là phép biến đổi tuyến tính đơn giản; (iii) GAN chỉ sinh synthetic data, không phải model dự đoán.
-    \item \textbf{Anomaly labels:} Rolling mean trong \texttt{label\_leakage} tính trên toàn bộ chuỗi. Đây là việc xác định ground truth dựa trên vật lý (ISO 50001 baseline), không phải feature dùng để huấn luyện model.
+    \item \textbf{GAN scaler:} \texttt{MinMaxScaler.fit\_transform()} được fit trên tập proxy anomaly dùng riêng cho thí nghiệm sinh dữ liệu tổng hợp. Các mẫu synthetic không được dùng để đánh giá trực tiếp hiệu năng trên tập kiểm thử. Trong mọi thí nghiệm downstream, scaler và mô hình cần được fit lại chỉ trên tập huấn luyện của từng fold thời gian. Vì vậy, kết quả GAN trong bài báo được diễn giải như đánh giá thống kê của module tăng cường dữ liệu, không phải bằng chứng cải thiện mô hình triển khai.
+    \item \textbf{Proxy anomaly labels:} Một số nhãn yếu được tạo bằng thống kê rolling hoặc baseline dài hạn trên toàn bộ chuỗi dữ liệu. Cách này phù hợp với mục tiêu xây dựng benchmark offline và phân tích hậu kiểm, nhưng không đại diện cho thiết lập phát hiện bất thường thời gian thực. Nếu triển khai online, các baseline và rolling statistics cần được tính theo hướng causal, chỉ sử dụng dữ liệu tại hoặc trước thời điểm $t$.
 \end{enumerate}
 
 Kết quả audit xác nhận pipeline không chứa data leakage.
@@ -319,57 +394,346 @@ Kết quả audit xác nhận pipeline không chứa data leakage.
 \subsection{Chỉ số Đánh giá}
 
 Độ trung thực thống kê (trung bình, độ lệch chuẩn, sai số phân vị).
-Chồng chéo PCA/t-SNE.
-Bảo toàn tương quan đặc trưng.
+Sai số mean/std giữa dữ liệu thật và synthetic.
+Bảo toàn tương quan đặc trưng bằng correlation MAE.
 
 % =============================================================================
 \section{KẾT QUẢ VÀ THẢO LUẬN}
 \label{sec:results}
 % =============================================================================
+\subsection{Phân tích Thống kê và Hiểu biết Dữ liệu}
 
-\subsection{Phân tích Dữ liệu}
+Bảng~\ref{tab:desc_stats} tóm tắt các thống kê mô tả cốt lõi của các biến điện năng chính. 
+Biến mục tiêu \texttt{Usage\_kWh} có phân phối lệch phải rõ rệt, với trung bình 27,39 kWh nhưng trung vị chỉ 4,57 kWh. 
+Sự chênh lệch này cho thấy phần lớn thời gian hệ thống vận hành ở mức tải nền thấp, xen kẽ với các giai đoạn sản xuất có tải cao, đạt tối đa 157,18 kWh.
 
-[Chèn bảng thống kê mô tả và đồ thị chuỗi thời gian]
+\begin{table}[htbp]
+\caption{THỐNG KÊ MÔ TẢ CÁC BIẾN ĐIỆN NĂNG CHÍNH}
+\label{tab:desc_stats}
+\centering
+\small
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Biến & Mean & Median & Std & Min & Max & Zero \% \\
+\midrule
+Usage\_kWh ($P$) & 27.39 & 4.57 & 33.44 & 0.00 & 157.18 & 0.00 \\
+Lagging\_kVarh & 13.04 & 5.00 & 16.31 & 0.00 & 96.91 & 20.53 \\
+Leading\_kVarh & 3.87 & 0.00 & 7.42 & 0.00 & 27.76 & 67.38 \\
+CO2(tCO2) & 0.012 & 0.00 & 0.016 & 0.00 & 0.07 & 59.90 \\
+Lagging\_PF & 0.81 & 0.88 & 0.19 & 0.00 & 1.00 & 0.00 \\
+Leading\_PF & 0.84 & 1.00 & 0.30 & 0.00 & 1.00 & 0.00 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
 
-\subsection{Đánh giá Kỹ thuật Đặc trưng}
+Đáng chú ý, \texttt{CO2(tCO2)} có tỷ lệ giá trị 0 cao và tương quan gần như tuyến tính với \texttt{Usage\_kWh}. 
+Điều này cho thấy biến CO2 nhiều khả năng là giá trị phát thải được quy đổi từ điện năng tiêu thụ thông qua hệ số phát thải, thay vì là tín hiệu cảm biến độc lập. 
+Vì vậy, CO2 được sử dụng chủ yếu như biến tham chiếu mô tả mức tiêu thụ, không phải đặc trưng độc lập chính cho phát hiện bất thường.
 
-[Chèn heatmap tương quan, hình phân rã DWT, và đồ thị phân tán S--$\varphi$]
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/fig0_usage_kwh_distribution.png}
+    \caption{Phân phối \texttt{Usage\_kWh} trong năm 2018. Phần lớn quan sát tập trung ở vùng tải thấp, trong khi một số giai đoạn sản xuất tạo ra đuôi phải kéo dài đến hơn 150 kWh. Việc trung bình lớn hơn nhiều so với trung vị cho thấy phân phối lệch phải rõ rệt và không phù hợp với một ngưỡng bất thường toàn cục.}
+    \label{fig:usage_distribution}
+\end{figure}
+
+Hình~\ref{fig:usage_distribution} minh họa trực quan phân phối lệch phải của \texttt{Usage\_kWh}. 
+Đặc điểm này củng cố nhu cầu đánh giá bất thường theo ngữ cảnh vận hành, thay vì sử dụng một ngưỡng chung cho toàn bộ tập dữ liệu.
+
+Bên cạnh các biến số liên tục, bộ dữ liệu còn bao gồm các biến phân loại mô tả ngữ cảnh vận hành như \texttt{WeekStatus} và \texttt{Load\_Type}. 
+Bảng~\ref{tab:categorical_distribution} trình bày phân bố của các biến này.
+
+\begin{table}[htbp]
+\caption{PHÂN BỐ CÁC BIẾN NGỮ CẢNH CHÍNH}
+\label{tab:categorical_distribution}
+\centering
+\small
+\begin{tabular}{@{}llrr@{}}
+\toprule
+Biến & Nhóm & Số mẫu & Tỷ lệ \\
+\midrule
+WeekStatus & Weekday & 25,056 & 71.51\% \\
+WeekStatus & Weekend & 9,984 & 28.49\% \\
+\midrule
+Load\_Type & Light\_Load & 18,072 & 51.58\% \\
+Load\_Type & Medium\_Load & 9,696 & 27.67\% \\
+Load\_Type & Maximum\_Load & 7,272 & 20.75\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Bảng~\ref{tab:categorical_distribution} cho thấy dữ liệu bị chi phối bởi các giai đoạn \texttt{Light\_Load}, chiếm hơn một nửa tổng số quan sát. 
+Đồng thời, dữ liệu ngày trong tuần chiếm 71,51\%, cao hơn đáng kể so với cuối tuần. 
+Điều này cho thấy các phân tích bất thường cần xét đến ngữ cảnh vận hành, vì cùng một mức \texttt{Usage\_kWh} có thể mang ý nghĩa khác nhau giữa các loại tải và trạng thái ngày.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/fig09_usage_kwh_by_load_type.png}
+    \caption{Phân phối \texttt{Usage\_kWh} theo \texttt{Load\_Type}. Mức tiêu thụ điện tăng rõ từ \texttt{Light\_Load} sang \texttt{Medium\_Load} và \texttt{Maximum\_Load}; tuy nhiên, nhóm \texttt{Light\_Load} vẫn xuất hiện nhiều điểm tiêu thụ cao, cho thấy cần đánh giá bất thường theo ngữ cảnh thay vì dựa trên một ngưỡng tuyệt đối.}
+    \label{fig:usage-kwh-load-type}
+\end{figure}
+
+Hình~\ref{fig:usage-kwh-load-type} cho thấy \texttt{Load\_Type} là biến ngữ cảnh quan trọng. 
+Đáng chú ý, ngay cả trong nhóm \texttt{Light\_Load}, mức tiêu thụ đỉnh vẫn có thể đạt 140,29 kWh. 
+Do đó, một giá trị tiêu thụ cao không nên được đánh giá tách rời khỏi loại tải, thời điểm trong ngày và trạng thái ngày làm việc/cuối tuần.
+
+Phân tích chu kỳ thời gian chỉ ra rằng mức tiêu thụ phụ thuộc chặt chẽ vào ngữ cảnh vận hành. 
+Mức tiêu thụ giảm rõ rệt vào ban đêm, đặc biệt trong khoảng 0h--7h, và tăng mạnh trong các khung giờ sản xuất chính.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/fig010_hourly_usage_cycle.png}
+    \caption{Chu kỳ tiêu thụ điện trung bình theo giờ trong ngày. Mức tiêu thụ duy trì ở baseline thấp vào ban đêm, tăng mạnh từ 8h, đạt đỉnh trong các khung 9--11h và 14--16h, đồng thời giảm rõ tại 12h. Pattern này phản ánh chu kỳ vận hành trong ngày và là cơ sở cho việc xây dựng các đặc trưng thời gian.}
+    \label{fig:hourly-usage-cycle}
+\end{figure}
+
+Hình~\ref{fig:hourly-usage-cycle} tái khẳng định rằng tiêu thụ điện có tính chu kỳ mạnh theo giờ trong ngày. 
+Đối với bài toán dự báo phụ tải và chẩn đoán rủi ro, các sự kiện đột biến cần được đánh giá dựa trên đặc trưng ngữ cảnh như giờ, trạng thái ngày và loại tải, thay vì sử dụng một ngưỡng tĩnh cho toàn bộ dữ liệu.
+
+\subsection{Đánh giá Không gian Đặc trưng và Tương quan}
+
+Phân tích tương quan cho thấy \texttt{Lagging\_kVarh} có quan hệ thuận mạnh với tải tác dụng, trong khi \texttt{Leading\_kVarh} tương quan âm ($r = -0,325$). Điều này chứng minh các biến phản kháng mang các tín hiệu vận hành độc lập, hỗ trợ tốt cho việc nắm bắt trạng thái máy móc.
+
+Về phía dữ liệu khí tượng, mối tương quan tổng thể giữa nhiệt độ và tiêu thụ điện khá yếu ($r = 0,034$). Tuy nhiên, khi cô lập trong nhóm \texttt{Light\_Load} và khung giờ đêm (0h--6h), độ trễ nhiệt độ (\texttt{Thermal\_Lag\_6h}) và chỉ số nhiệt-ẩm (THI) lại cho thấy tương quan âm đáng kể (dao động từ $-0,28$ đến $-0,30$). Kết quả này củng cố quyết định thiết kế của pipeline: biến khí tượng không phải là nguyên nhân chi phối toàn bộ biến động tải công nghiệp, mà đóng vai trò như một lớp ngữ cảnh bổ sung (\textit{contextual enrichment}) giúp cải thiện độ chính xác dự báo tải tĩnh và phát hiện các rò rỉ năng lượng ngoài giờ sản xuất.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/fig011_correlation_heatmap.png}
+    \caption{Ma trận tương quan giữa các biến điện, khí tượng và vật lý chính. Tương quan mạnh giữa \texttt{Usage\_kWh}, reactive power và \texttt{Apparent\_Power\_S} phù hợp với quan hệ tam giác công suất; trong khi các biến thời tiết có tương quan tuyến tính yếu hơn, củng cố vai trò ngữ cảnh thay vì driver chính của tải công nghiệp.}
+    \label{fig:correlation_heatmap}
+\end{figure}
+
+Hình~\ref{fig:dwt_decomposition} bổ sung góc nhìn miền tần số cho cùng chuỗi tải. Thành phần xấp xỉ giữ xu hướng tải nền, trong khi các hệ số chi tiết làm nổi bật các dao động ngắn hạn và các điểm chuyển tải. Điều này giải thích vì sao wavelet được đưa vào dataset như một nhóm đặc trưng audit được, dù ablation forecasting một giờ chưa cho thấy cải thiện lớn hơn nhóm đặc trưng thời gian.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig03_dwt_decomposition.png}
+    \caption{Phân rã DWT db4-L3 trên đoạn \texttt{Usage\_kWh}. Các dải chi tiết giúp cô lập biến động đa tỉ lệ và các spike tải mà thống kê trượt có thể làm mượt.}
+    \label{fig:dwt_decomposition}
+\end{figure}
+
+Hình~\ref{fig:s_phi_scatter} minh họa đóng góp của đặc trưng vật lý. Không gian $S$--$\varphi$ phân tách tương đối rõ các chế độ tải, cho thấy công suất biểu kiến và góc lệch pha giúp diễn giải trạng thái vận hành thay vì chỉ cung cấp thêm biến số cho mô hình.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figures/fig04_s_phi_scatter.png}
+    \caption{Không gian đặc trưng $S$--$\varphi$ theo \texttt{Load\_Type}. Đặc trưng vật lý giúp nối số liệu công tơ với diễn giải điện học về tải tác dụng, tải phản kháng và suy giảm power factor.}
+    \label{fig:s_phi_scatter}
+\end{figure}
 
 \subsection{Phân bố Bất thường}
 
-[Chèn bảng phân bố nhãn bất thường và đồ thị timeline]
+Do tập dữ liệu công khai không kèm nhật ký bảo trì hoặc cảnh báo SCADA, các nhãn bất thường không được xem là \textit{ground truth} tuyệt đối. Thay vào đó, chúng tôi diễn giải chúng như \textit{physics-informed weak labels}: nhãn yếu được tạo từ các hàm gán nhãn minh bạch, tương tự tư duy weak supervision/data programming trong đó tri thức miền được mã hóa thành labeling functions khi thiếu nhãn thủ công quy mô lớn~\cite{ratner2016data,ratner2017snorkel}.
+
+\begin{table}[htbp]
+\caption{KIỂM ĐỊNH TÍNH HỢP LÝ CỦA PROXY ANOMALY LABELS}
+\label{tab:proxy_validation}
+\centering
+\small
+\begin{tabular}{@{}lrrp{3.2cm}@{}}
+\toprule
+Nhãn & Số mẫu & Tỷ lệ & Bằng chứng hợp lý \\
+\midrule
+Idling & 10 & 0,029\% & Chỉ xuất hiện trong Light\_Load và ngoài giờ. \\
+Leakage & 2.336 & 6,667\% & Hiếm nhưng đủ lớn, phản ánh drift so với baseline 4 tuần. \\
+Overload & 48 & 0,137\% & Tập trung hơn ở Maximum\_Load, khớp logic tải cực trị. \\
+Any anomaly & 2.388 & 6,815\% & 93,185\% mẫu vẫn bình thường; mất cân bằng hợp lý. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Phân tích chồng lấp cho thấy 2.330 mẫu chỉ thuộc lớp leakage, 42 mẫu chỉ thuộc overload,
+10 mẫu chỉ thuộc idling, và chỉ 6 mẫu đồng thời leakage--overload. Mức chồng lấp thấp
+giúp giảm rủi ro các quy tắc gán nhãn đang đánh dấu cùng một hiện tượng dưới nhiều tên gọi.
+Tuy nhiên, do thiếu nhãn vận hành thật, các kết quả này chỉ xác nhận tính hợp lý của
+labeling scheme, không xác nhận chẩn đoán kỹ thuật cuối cùng.
+
+\paragraph{Khác biệt giữa \texttt{Load\_Type} và proxy anomaly labels}
+\texttt{Load\_Type} mô tả chế độ vận hành bình thường, trong khi proxy anomaly labels mô tả các dấu hiệu bất thường ứng viên bên trong hoặc xuyên qua các chế độ đó. Tỷ lệ \texttt{anomaly\_any} theo \texttt{Load\_Type} lần lượt là 6,336\% cho \texttt{Light\_Load}, 7,189\% cho \texttt{Medium\_Load}, và 7,508\% cho \texttt{Maximum\_Load}; mutual information giữa \texttt{Load\_Type} và \texttt{anomaly\_any} chỉ đạt 0,0002. Do đó, \texttt{Load\_Type} một mình gần như không giải thích được nhãn anomaly tổng hợp, và proxy anomaly labeling không chỉ tái mã hóa \texttt{Load\_Type}. Tuy vậy, từng cơ chế bất thường vẫn có quan hệ hợp lý với chế độ vận hành: \texttt{Idling} chỉ xuất hiện trong \texttt{Light\_Load}, còn \texttt{Overload} tập trung hơn ở \texttt{Maximum\_Load}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig05_anomaly_timeline.png}
+    \caption{Phân bố ba loại proxy anomaly theo giờ trong ngày. Hình này hỗ trợ kiểm tra trực quan rằng idling, leakage và overload có mẫu thời gian khác nhau, nhưng vẫn cần diễn giải như nhãn proxy vì không có SCADA/maintenance ground truth.}
+    \label{fig:anomaly_timeline}
+\end{figure}
 
 \subsection{Chất lượng Tăng cường GAN}
 
-[Chèn bảng so sánh thực--tổng hợp và các đồ thị PCA/t-SNE]
+FC-GAN được đánh giá trên 2.388 proxy anomaly rows và 55 đặc trưng số như một thử nghiệm cân bằng dữ liệu lớp thiểu số. Kết quả từ \texttt{gan\_stats.json} cho thấy trung bình \texttt{Usage\_kWh} của mẫu thật/synthetic là 43,14/46,67, tương ứng sai số 8,20\%; độ lệch chuẩn là 38,22/39,68, tương ứng sai số 3,81\%; và correlation MAE đạt 0,116. Các kết quả này cho thấy synthetic samples giữ được một số thống kê tổng quát ở mức ban đầu, nhưng chưa đủ để kết luận rằng GAN bảo toàn đầy đủ cấu trúc thời gian hoặc cơ chế vật lý của bất thường. Vì vậy, synthetic data chỉ được xem là dữ liệu phụ trợ cho cân bằng lớp trong thí nghiệm, không phải bằng chứng lỗi vận hành thật.
 
-\subsection{So sánh Tổng thể}
+\subsection{Ablation Study cho Dự báo Tải và Proxy Labels}
 
-[Các chỉ số so sánh tập dữ liệu thô và đã xử lý]
+Chúng tôi chạy ablation study để kiểm chứng đóng góp thực tế của các nhóm đặc trưng. Với tác vụ dự báo \texttt{Usage\_kWh} trước 1 giờ, time-domain features cải thiện RMSE từ 13,01 xuống 12,01 và $R^2$ từ 0,828 lên 0,853. Thêm weather, wavelet, và physical features không cải thiện thêm cho horizon này, cho thấy lịch sử tải gần nhất vẫn là tín hiệu chi phối trong dự báo ngắn hạn.
+
+Với tác vụ phân loại \texttt{anomaly\_any}, cấu hình đầy đủ \textit{Time + Weather} đạt PR-AUC trung bình 0,364 qua TimeSeriesSplit 5 fold, cao hơn raw/context 0,198. Tuy nhiên, khi loại các biến trực tiếp tạo nhãn như \texttt{Usage\_kWh}, power factor, reactive power, \texttt{Load\_Type}, \texttt{NSM}, và các biến vật lý phái sinh, PR-AUC cao nhất chỉ còn 0,0178. Điều này xác nhận proxy labels nhất quán với logic tạo nhãn, nhưng hiệu quả phân loại phần lớn đến từ các biến rule-defining thay vì bằng chứng độc lập về lỗi thật.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig09_ablation_forecast_rmse.png}
+    \caption{Ablation forecasting theo RMSE cho target \texttt{Usage\_kWh(t+1h)}. Nhóm \textit{Raw + Time} đạt RMSE thấp nhất, cho thấy đặc trưng lịch sử và chu kỳ là ưu tiên kỹ thuật đầu tiên cho dự báo tải ngắn hạn.}
+    \label{fig:ablation_forecast_rmse}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig10_ablation_proxy_pr_auc.png}
+    \caption{Ablation proxy anomaly theo PR-AUC. Track đầy đủ cho thấy \textit{Raw + Time + Weather} đạt PR-AUC cao nhất, trong khi rule-free rất thấp; kết quả này hỗ trợ kết luận weather hữu ích như ngữ cảnh nhưng chưa đủ để xác nhận lỗi thật độc lập.}
+    \label{fig:ablation_proxy_pr_auc}
+\end{figure}
+
+Các hình bổ sung dưới đây làm rõ ba khía cạnh kỹ thuật của dataset: đặc trưng vật lý có khả năng phân tách chế độ vận hành, đặc trưng thời gian mang tín hiệu dự báo mạnh nhất, và pipeline có cơ chế audit missingness khi mở rộng sang nguồn dữ liệu mới.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/fig07_physical_distribution.png}
+    \caption{Phân phối KDE của $S$ và $\varphi$ theo \texttt{Load\_Type}. Các phân phối khác nhau giữa Light/Medium/Maximum Load cho thấy đặc trưng vật lý hỗ trợ diễn giải trạng thái vận hành.}
+    \label{fig:physical_distribution}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig08_feature_impact.png}
+    \caption{Tác động của đặc trưng thời gian: rolling standard deviation như tín hiệu biến động ngắn hạn và lag-24h như tín hiệu chu kỳ ngày. Đây là bằng chứng trực quan cho kết quả \textit{Raw + Time} đạt RMSE tốt nhất.}
+    \label{fig:feature_impact}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/fig06_missingness_pattern.png}
+    \caption{Minh họa audit missingness cho pipeline. Dữ liệu gốc hiện không có missing rõ ràng, nhưng module này giúp kiểm tra MCAR/MAR/MNAR khi tích hợp thêm cảm biến hoặc nguồn dữ liệu mới.}
+    \label{fig:missingness_pattern}
+\end{figure}
+
+\subsection{Đóng góp Nghiệp vụ và Cộng đồng Dữ liệu}
+
+Các kết quả ablation cho thấy đóng góp chính của nghiên cứu không nằm ở việc đạt một mô hình dự báo tối ưu, mà nằm ở việc chuyển một tập dữ liệu công tơ công khai thành một benchmark dữ liệu điện công nghiệp có thể kiểm toán. Tập UCI gốc cung cấp 35.040 mẫu 15 phút với các biến điện năng và vận hành cơ bản~\cite{uci2023}; nhiều nghiên cứu gần đây trên cùng miền dữ liệu vẫn tập trung vào tối ưu dự báo hoặc ước lượng năng lượng, chẳng hạn stacking ensemble cho active/reactive energy forecasting~\cite{haq2023stacking} hoặc mô hình MARS tối ưu bằng WOA đạt độ khớp rất cao cho bài toán estimation~\cite{garcianieto2025interpretable}. Ngược lại, pipeline trong nghiên cứu này nhấn mạnh lớp dữ liệu trước mô hình: căn chỉnh thời tiết, đặc trưng thời gian nhân quả, đặc trưng wavelet/vật lý, weak labels có giải thích, kiểm toán leakage, codebook, datasheet, và ablation tách riêng forecasting, proxy-label classification, và rule-free validation.
+
+Về mặt nghiệp vụ, kết quả này có hai cách sử dụng thực tế. Với nhà máy có hạ tầng dữ liệu tiên tiến, pipeline đóng vai trò như một khung đánh giá mức trưởng thành dữ liệu: nó chỉ ra dữ liệu công tơ và thời tiết có thể hỗ trợ baseline ở mức nào, đồng thời làm rõ các nguồn dữ liệu cần bổ sung để tăng độ chính xác như log bảo trì, cảnh báo SCADA, cảm biến asset-level, trạng thái thiết bị, và lịch sản xuất chi tiết. Với nhà máy ít cảm biến hơn, cùng một pipeline có thể được dùng như một baseline cảnh báo thận trọng: không thay relay/SCADA và không kết luận lỗi thật, nhưng giúp ưu tiên kiểm tra khi tải, power factor, reactive power, hoặc drift dài hạn lệch khỏi baseline theo ngữ cảnh. Điều này phù hợp với nhận định rằng thời tiết trong tải công nghiệp có thể chỉ đóng góp nhỏ cho forecasting do lịch sản xuất chi phối mạnh hơn~\cite{gekeler2025weather}, nhưng vẫn hữu ích như biến ngữ cảnh để hiệu chỉnh baseline và giảm false alarm.
+
+Ở góc nhìn doanh nghiệp, dataset không chỉ là đầu ra dữ liệu mà còn là bằng chứng thực nghiệm để ưu tiên kỹ thuật. Ablation cho thấy doanh nghiệp không nhất thiết phải triển khai toàn bộ kỹ thuật phức tạp ngay từ đầu: với dự báo tải ngắn hạn, nhóm đặc trưng thời gian là ưu tiên quan trọng nhất; với dự đoán rủi ro dạng proxy, việc bổ sung ngữ cảnh thời tiết cải thiện PR-AUC rõ nhất trong track đầy đủ. Do đó, Electrimight hỗ trợ ra quyết định theo hướng \textit{data maturity}: xác định kỹ thuật nào nên làm trước để đạt hiệu quả nhanh, giảm thử-sai tốn kém, và hỗ trợ sàng lọc rủi ro vận hành một cách thận trọng. Cách diễn giải này không đồng nghĩa với phát hiện lỗi chắc chắn hay tự động điều khiển an toàn; mọi kết luận vận hành vẫn cần nhãn SCADA, log bảo trì hoặc chuyên gia điện xác nhận.
+
+Về mặt đóng góp dữ liệu, điểm khác biệt của Electrimight là hướng tiếp cận \textit{data-centric}. Nhiều bài toán dự báo điện còn tập trung vào tối ưu mô hình cho load forecasting thuần, trong khi dữ liệu đầu vào thường chỉ gồm các đo lường tiêu thụ cơ bản. Nghiên cứu này nhấn mạnh lớp dữ liệu trước mô hình: làm giàu công tơ thô bằng thời tiết, thời gian, wavelet, vật lý điện và proxy labels có giải thích. Vì vậy, đóng góp không chỉ nằm ở kết quả dự báo, mà còn ở việc tạo ra một nền dữ liệu có thể dùng để nghiên cứu mối liên hệ giữa feature engineering, weak labeling và proxy risk prediction trong tải điện công nghiệp.
+
+Về mặt cộng đồng dữ liệu, đóng góp nằm ở việc làm cho giới hạn của dataset trở nên minh bạch thay vì che giấu bằng điểm số mô hình. Các tổng quan về anomaly detection trong dữ liệu năng lượng nhấn mạnh rằng thiếu định nghĩa anomaly chính xác, thiếu nhãn được xác thực, thiếu dataset annotated, thiếu metric thống nhất và thiếu nền tảng tái lập vẫn là rào cản lớn~\cite{himeur2021review}. Tương tự, anomaly detection trên chuỗi tiêu thụ gần chu kỳ cần được đánh giá cẩn trọng vì hiệu quả phụ thuộc vào chiều dài chuỗi, cửa sổ phát hiện và khả năng tổng quát hóa sang thiết bị/bối cảnh khác~\cite{zangrando2022quasi}. Vì vậy, việc báo cáo PR-AUC 0,364 cho track đầy đủ và rule-free PR-AUC rất thấp không làm suy yếu đóng góp; ngược lại, nó xác định ranh giới khoa học giữa \textit{proxy risk benchmark} và phát hiện lỗi đã xác nhận. Đây là giá trị cộng đồng của tập dữ liệu đã làm giàu: cung cấp một artefact có thể tái lập để các nghiên cứu sau kiểm tra tác động của feature construction, weak labeling, synthetic augmentation, và nhu cầu bổ sung nhãn thật.
+
+\subsection{So sánh Tổng thể và Hạn chế}
+
+Tập dữ liệu đã xử lý mở rộng dữ liệu thô bằng đặc trưng thời gian, DWT, vật lý,
+khí tượng, và proxy anomaly labels. Tuy nhiên, các hạn chế và rủi ro cần được
+công nhận rõ: (i) dữ liệu chỉ đến từ một nhà máy tại Gwangyang nên có thiên lệch
+địa lý và lịch vận hành; (ii) dữ liệu thời tiết từ Open-Meteo là tái phân tích
+theo tọa độ, không phải đo trực tiếp trong nhà máy; (iii) anomaly labels là weak
+labels, không phải cảnh báo SCADA được xác nhận; (iv) DWT hiện tại dùng cửa sổ và wavelet cố định,
+nên hữu ích như đặc trưng đa tỉ lệ ban đầu nhưng cần MODWT hoặc lựa chọn wavelet thích ứng nếu muốn ổn định hơn khi mở rộng dữ liệu;
+(v) các đặc trưng vật lý $S$ và $\varphi$ được suy ra từ $P$, $Q$, và PF, không phải cảm biến độc lập,
+nên chúng hỗ trợ diễn giải và phân tách chế độ vận hành nhưng chưa thay thế đo lường asset-level;
+(vi) dữ liệu tiêu thụ điện 15
+phút có thể tiết lộ pattern sản xuất nếu áp dụng cho dữ liệu doanh nghiệp chưa
+công khai; và (vii) synthetic data từ GAN không được dùng làm bằng chứng lỗi
+thật. Vì vậy, dataset phù hợp cho nghiên cứu/offline analytics, nhưng không nên
+dùng cho quyết định pháp lý hoặc điều khiển SCADA real-time nếu chưa có chuyên
+gia điện xác nhận.
+Với các nhãn proxy này, ablation modeling vẫn có thể thực hiện để đo đóng góp tương đối của các nhóm đặc trưng, nhưng kết quả phải được diễn giải là khả năng dự đoán \textit{proxy labels}, không phải phát hiện lỗi thật. Nếu dùng trực tiếp các biến đã tham gia tạo nhãn như \texttt{Usage\_kWh}, power factor, reactive power, \texttt{Load\_Type}, hoặc \texttt{NSM}, mô hình có thể chỉ học lại labeling rules; do đó ablation chính thức cần báo cáo thêm một cấu hình loại bỏ các biến rule-defining để kiểm tra khả năng tổng quát hóa.
 
 % =============================================================================
 \section{KẾT LUẬN}
 \label{sec:conclusion}
 % =============================================================================
 
-Bài báo này trình bày một pipeline tiền xử lý và xây dựng tập dữ liệu toàn diện
-cho tập dữ liệu Tiêu thụ Điện năng Ngành thép.
-Bằng cách tích hợp thống kê miền thời gian, hệ số Biến đổi Wavelet rời rạc,
-và các đạo hàm dựa trên vật lý, framework đề xuất đã làm phong phú tập dữ liệu gốc
-từ 11 lên hơn 40 đặc trưng.
-Ba lớp bất thường được gán nhãn bằng các ngưỡng vật lý dựa trên quy tắc,
-và một module tăng cường GAN đã tổng hợp 500 mẫu lớp thiểu số.
+Bài báo này trình bày một pipeline tiền xử lý toàn diện nhằm xây dựng tập dữ liệu chất lượng cao từ dữ liệu thô về Tiêu thụ Điện năng Ngành thép. Bằng cách tích hợp các thống kê miền thời gian, hệ số Biến đổi Wavelet rời rạc (DWT) và các đặc trưng phái sinh dựa trên vật lý ($S, \varphi$), framework đề xuất đã mở rộng không gian đặc trưng từ 11 lên 64 biến có ý nghĩa thực tiễn. Bên cạnh đó, chúng tôi thiết lập ba phân lớp bất thường dựa trên quy tắc vật lý đóng vai trò như các nhãn yếu (\textit{physics-informed weak labels}), đồng thời khảo sát một module GAN dạng bảng để tạo 500 mẫu tổng hợp như thử nghiệm ban đầu cho bài toán mất cân bằng phân lớp.
 
-Các đóng góp chính là:
+Thực nghiệm đánh giá bóc tách (ablation study) trên tác vụ dự báo phụ tải trước 1 giờ cho thấy các đặc trưng miền thời gian mang lại cải thiện rõ rệt nhất, trong khi dữ liệu khí tượng chỉ đóng vai trò ngữ cảnh tĩnh và không cải thiện độ chính xác dự báo trong ngắn hạn. Đối với bài toán phát hiện bất thường, kết quả trên mô hình loại bỏ quy tắc tĩnh (rule-free) tái khẳng định sự cần thiết của nhật ký vận hành SCADA hoặc bảo trì để có thể đánh giá lỗi độc lập, tránh tình trạng mô hình học vẹt các điều kiện gán nhãn.
+
+Các đóng góp chính của nghiên cứu bao gồm:
 \begin{itemize}
-\item Một framework kỹ thuật đặc trưng đa miền trích xuất đặc trưng thời gian, phổ, và vật lý
-\item Một chiến lược gán nhãn bất thường dựa trên vật lý phát hiện chạy không tải, rò rỉ, và quá tải mà không cần chú thích thủ công
-\item Một pipeline tăng cường GAN với độ trung thực thống kê bậc một được xác thực qua PCA và t-SNE
+    \item Xây dựng framework kỹ thuật đặc trưng đa miền (thời gian, phổ tần, và vật lý) phục vụ trực tiếp cho việc nắm bắt chu kỳ vận hành.
+    \item Đề xuất chiến lược gán nhãn yếu dựa trên vật lý để nhận diện rủi ro ứng viên (chạy không tải, rò rỉ, quá tải) trong bối cảnh thiếu vắng \textit{ground truth}.
+    \item Khảo sát module tăng cường dữ liệu bằng GAN cho nhóm proxy anomaly, với kết quả thống kê ban đầu cho thấy synthetic samples có mức tương đồng nhất định với dữ liệu thật, nhưng vẫn cần các mô hình sinh chuỗi thời gian chuyên biệt hơn như TimeGAN trong nghiên cứu tương lai.
+    \item Phân định rõ ràng giữa khả năng dự báo, phân loại nhãn proxy và validation phi quy tắc nhằm đánh giá đúng giới hạn của dữ liệu và tránh ngộ nhận hiệu suất (\textit{overclaim}).
 \end{itemize}
 
-Hướng nghiên cứu trong tương lai sẽ khám phá ngưỡng thích ứng qua phân cụm,
-kiến trúc TimeGAN để bảo toàn thời gian tốt hơn,
-và đánh giá hạ nguồn sử dụng các mô hình LSTM và Transformer.
+Hướng nghiên cứu trong tương lai sẽ tập trung vào việc đối chiếu các nhãn proxy và đặc trưng vật lý với nhật ký SCADA hoặc dữ liệu cảm biến cấp thiết bị (\textit{asset-level}) khi có sẵn. Đồng thời, chúng tôi dự kiến ứng dụng MODWT để tăng độ ổn định của đặc trưng phổ, sử dụng TimeGAN nhằm bảo toàn chuỗi thời gian, và triển khai các kiến trúc học sâu tiên tiến (LSTM, Transformer) cho mô hình dự báo hạ nguồn.
+
+% =============================================================================
+% PHỤ LỤC DATASHEET
+% =============================================================================
+\newpage
+\appendix
+\section{DATASHEET CHO TẬP DỮ LIỆU ELECTRIMIGHT}
+\label{app:datasheet}
+
+Phụ lục này tóm tắt \textit{Datasheet for Datasets} cho tập dữ liệu đã xử lý \texttt{steel\_final.csv}, theo khuyến nghị của Gebru et al.~\cite{gebru2021datasheets}. Mục tiêu của datasheet là làm rõ động cơ, thành phần, quy trình thu thập, tiền xử lý, phạm vi sử dụng, phân phối và bảo trì dataset; đồng thời nêu các rủi ro đạo đức/kỹ thuật để tránh diễn giải sai nhãn proxy như lỗi vận hành đã xác nhận.
+
+\begin{table}[htbp]
+\caption{THÔNG TIN TỔNG QUAN DATASET}
+\label{tab:datasheet_overview}
+\centering
+\small
+\begin{tabular}{@{}lp{5.2cm}@{}}
+\toprule
+Thuộc tính & Giá trị \\
+\midrule
+Tên dataset & DS108-Electrimight, xây dựng từ Steel Industry Energy Consumption Dataset \\
+Số mẫu & 35.040 quan sát, tần suất 15 phút, bao phủ 01/01/2018--31/12/2018 \\
+Số cột & 64 cột: 11 cột gốc và 53 cột kỹ thuật/nhãn \\
+Nguồn dữ liệu & UCI ML Repository cho dữ liệu điện; Open-Meteo Historical API cho thời tiết \\
+Địa điểm & Khu vực POSCO Gwangyang, Hàn Quốc \\
+Đầu ra chính & \texttt{data/gold/steel\_final.csv}, \texttt{metadata/dataset/CODEBOOK.csv}, \texttt{metadata/dataset/DATASHEET.md} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Motivation}
+
+Dataset được tạo để hỗ trợ nghiên cứu data-centric cho dự báo tiêu thụ điện công nghiệp và phân tích rủi ro tải điện dạng proxy. Khác với các benchmark chỉ tập trung vào load forecasting thuần, Electrimight bổ sung ngữ cảnh thời tiết, đặc trưng thời gian, wavelet, đặc trưng vật lý điện và nhãn yếu có giải thích. Vì vậy, dataset phục vụ hai mục tiêu: cung cấp đầu vào giàu ngữ cảnh cho mô hình downstream, và cho phép đánh giá nhóm kỹ thuật nào nên được ưu tiên trước khi doanh nghiệp đầu tư thêm cảm biến hoặc hệ thống phân tích phức tạp.
+
+\subsection{Composition}
+
+Mỗi dòng biểu diễn một mốc đo 15 phút gồm tín hiệu điện, ngữ cảnh thời tiết, đặc trưng kỹ thuật và nhãn proxy. Các nhóm cột chính gồm: raw/electrical, weather, weather-derived, time-domain, wavelet-domain, physical-domain và anomaly labels. Nhãn gồm \texttt{anomaly\_idling}, \texttt{anomaly\_leakage}, \texttt{anomaly\_overload}, \texttt{anomaly\_any}, các confidence scores và \texttt{anomaly\_explanation}. Tỷ lệ \texttt{anomaly\_any} là 2.388/35.040 mẫu, tương đương 6,815\%, phản ánh bài toán mất cân bằng lớp phù hợp với bối cảnh bất thường công nghiệp.
+
+Dataset không chứa thông tin cá nhân. Tuy nhiên, nếu áp dụng pipeline này cho dữ liệu doanh nghiệp chưa công khai, chuỗi tiêu thụ điện 15 phút có thể tiết lộ pattern sản xuất, lịch ca hoặc giai đoạn dừng máy. Do đó, việc phân phối dữ liệu mở rộng cần cân nhắc quyền sở hữu dữ liệu và bảo mật vận hành.
+
+\subsection{Collection Process}
+
+Dữ liệu điện được lấy từ UCI Machine Learning Repository. Dữ liệu thời tiết được lấy từ Open-Meteo Historical API tại tọa độ 34.975\textdegree{}N, 127.589\textdegree{}E, sau đó căn chỉnh về tần suất 15 phút trước khi merge theo timestamp. Dữ liệu không liên quan đến con người nên không yêu cầu ethical review về PII. Tuy nhiên, datasheet vẫn ghi rõ giới hạn về địa lý, vì một nhà máy tại Gwangyang không đại diện cho mọi nhà máy thép hoặc mọi vùng khí hậu.
+
+\subsection{Preprocessing and Labeling}
+
+Pipeline xử lý theo kiến trúc bronze/silver/gold. Dữ liệu bronze được giữ đọc-only. Các bước chính gồm: kiểm tra timestamp, chuẩn hóa power factor, tích hợp weather, tạo lag/rolling/cyclical features, trích xuất DWT db4-L3, tính $S$ và $\varphi$, và tạo nhãn proxy dựa trên rule. Các kiểm tra leakage gồm rolling window không centered, lag chỉ nhìn quá khứ, DWT window theo hướng causal và weather merge không dùng back-fill từ tương lai.
+
+Ba nhãn proxy không phải ground truth lỗi thật. Chúng được thiết kế như labeling functions có thể kiểm tra: idling dựa trên tải nhẹ, off-hours và PF thấp; leakage dựa trên rolling mean vượt baseline; overload dựa trên cực trị \texttt{Usage\_kWh}, reactive power và PF thấp. Cách gán nhãn này phù hợp cho benchmark offline, nhưng không đủ để ra quyết định an toàn nếu thiếu SCADA/maintenance labels.
+
+\subsection{Uses and Misuses}
+
+Dataset phù hợp cho short-term load forecasting, nghiên cứu feature engineering, kiểm tra weak/proxy labels, phân tích dữ liệu công nghiệp ít cảm biến và so sánh tác động của các nhóm đặc trưng. Kết quả ablation cho thấy \textit{Raw + Time} là ưu tiên đầu tiên cho forecasting, còn \textit{Raw + Time + Weather} hữu ích nhất cho proxy risk prediction trong full track. Đây là insight giúp doanh nghiệp ưu tiên đầu tư dữ liệu/kỹ thuật theo từng bước, thay vì triển khai đồng thời mọi kỹ thuật phức tạp.
+
+Dataset không nên được dùng để kết luận lỗi thật, điều khiển SCADA real-time, ra quyết định pháp lý hoặc thay thế chuyên gia điện. Mọi cảnh báo từ proxy labels cần được xem là tín hiệu sàng lọc rủi ro ứng viên và phải được xác nhận bằng log vận hành, cảm biến asset-level hoặc kiểm tra kỹ thuật.
+
+\begin{table*}[htbp]
+\caption{LIMITATIONS, RISKS VÀ BIỆN PHÁP GIẢM THIỂU}
+\label{tab:datasheet_risks}
+\centering
+\small
+\begin{tabular}{@{}p{2.7cm}p{5.1cm}p{5.1cm}@{}}
+\toprule
+Nhóm rủi ro & Mô tả & Cách xử lý trong nghiên cứu \\
+\midrule
+Ground truth & Không có nhật ký bảo trì hoặc cảnh báo SCADA để xác nhận lỗi thật. & Gọi nhãn là weak/proxy labels, báo cáo rule-free track và không claim phát hiện lỗi chắc chắn. \\
+Thiên lệch địa lý & Một nhà máy tại Gwangyang, Hàn Quốc; lịch sản xuất và khí hậu có thể khác nhà máy khác. & Khuyến nghị hiệu chỉnh threshold theo từng nhà máy và không tuyên bố tổng quát hóa tuyệt đối. \\
+Weather & Open-Meteo theo tọa độ, không phải sensor on-site; resampling 1h$\rightarrow$15min có thể làm mượt cực trị. & Diễn giải weather như contextual enrichment, không xem là nguyên nhân chính của mọi biến động tải. \\
+Rule dependency & Mô hình full-track có thể học lại biến trực tiếp tham gia labeling rules. & Báo cáo thêm rule-free track; PR-AUC thấp được xem là insight về giới hạn của public meter data. \\
+Synthetic data & FC-GAN có thể giữ mean/std nhưng làm sai lệch tương quan hoặc động học thời gian. & Báo cáo mean/std error và correlation MAE; synthetic rows chỉ dùng cho thử nghiệm augmentation. \\
+Misuse vận hành & Dùng proxy labels cho điều khiển real-time có thể gây quyết định bảo trì/dừng máy sai. & Giới hạn phạm vi ở offline analytics và yêu cầu chuyên gia điện xác nhận trước triển khai. \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Distribution and Maintenance}
+
+Dataset dự kiến phân phối kèm \texttt{steel\_final.csv}, metadata trong \texttt{metadata/dataset/}, metadata pipeline trong \texttt{metadata/pipeline/} và notebook/script tái lập. Các phiên bản nên được quản lý bằng Git tags hoặc releases để người dùng biết chính xác schema, rule labeling và số liệu ablation tại từng mốc. Trong tương lai, dataset có thể mở rộng bằng log SCADA, maintenance labels, cảm biến asset-level hoặc dữ liệu nhiều nhà máy; các phiên bản mở rộng cần cập nhật lại codebook, datasheet và đánh giá leakage.
 
 % =============================================================================
 % LỜI CẢM ƠN
@@ -404,6 +768,62 @@ long-term horizons: A review,''
 \emph{IET Gener. Transm. Distrib.},
 vol.~10, no.~16, pp. 3971--3977, 2016.
 
+\bibitem{amjady2011}
+N.~Amjady and F.~Keynia, ``A new neural network approach to
+short term load forecasting of electrical power systems,''
+\emph{Energies}, vol.~4, no.~3, pp. 488--503, 2011,
+doi: 10.3390/en4030488.
+
+\bibitem{sobhani2019weather}
+M.~Sobhani, A.~Campbell, S.~Sangamwar, C.~Li, and T.~Hong,
+``Combining weather stations for electric load forecasting,''
+\emph{Energies}, vol.~12, no.~8, p. 1510, 2019,
+doi: 10.3390/en12081510.
+
+\bibitem{gekeler2025weather}
+D.~Gekeler, L.~Baur, F.~Schnell, P.~Hennig, and A.~Sauer,
+``Benefit of weather integration for industrial electric load
+forecasting---A benchmark study,'' in \emph{Proc. 6th Int.
+Conf. Clean and Green Energy Engineering (CGEE)}, 2025,
+pp. 84--88, doi: 10.1109/CGEE65971.2025.11327705.
+
+\bibitem{haq2023stacking}
+H.~Mubarak, M.~J. Sanjari, S.~Stegen, and A.~Abdellatif,
+``Improved active and reactive energy forecasting using a stacking
+ensemble approach: Steel industry case study,''
+\emph{Energies}, vol.~16, no.~21, p.~7252, 2023,
+doi: 10.3390/en16217252.
+
+\bibitem{garcianieto2025interpretable}
+P.~J. Garcia-Nieto, E.~Garcia-Gonzalo, L.~A. Menendez-Garcia,
+L.~Alvarez-de-Prado, M.~Menendez-Fernandez, and A.~Bernardo-Sanchez,
+``Interpretable machine learning models for estimating electric energy
+consumption in steel industries,''
+\emph{Mathematics}, vol.~13, no.~21, p.~3364, 2025.
+
+\bibitem{openmeteo2026}
+Open-Meteo, ``Historical Weather API,'' 2026. [Online].
+Available: https://open-meteo.com/en/docs/historical-weather-api
+
+\bibitem{hoffmann2020switchgear}
+M.~W. Hoffmann \emph{et al.}, ``Integration of novel sensors and
+machine learning for predictive maintenance in medium voltage switchgear
+to enable the energy and mobility revolutions,''
+\emph{Sensors}, vol.~20, no.~7, p. 2099, Apr. 2020,
+doi: 10.3390/s20072099.
+
+\bibitem{batra2014nilmtk}
+N.~Batra \emph{et al.}, ``NILMTK: An open source toolkit for
+non-intrusive load monitoring,'' in \emph{Proc. 5th ACM Int. Conf.
+Future Energy Systems}, 2014, pp. 265--276,
+doi: 10.1145/2602044.2602051.
+
+\bibitem{rashid2019nilm}
+H.~Rashid, P.~Singh, V.~Stankovic, and L.~Stankovic, ``Can
+non-intrusive load monitoring be used for identifying an appliance's
+anomalous behaviour?,'' \emph{Applied Energy}, vol.~238, pp. 796--805,
+2019, doi: 10.1016/j.apenergy.2019.01.061.
+
 \bibitem{uci2023}
 ``Steel Industry Energy Consumption Dataset,'' UCI Machine
 Learning Repository. [Online]. Available:
@@ -427,6 +847,36 @@ A survey,''
 \emph{ACM Comput. Surv.}, vol.~41, no.~3, pp. 1--58,
 2009.
 
+\bibitem{himeur2021review}
+Y.~Himeur, K.~Ghanem, A.~Alsalemi, F.~Bensaali, and A.~Amira,
+``Artificial intelligence based anomaly detection of energy consumption
+in buildings: A review, current trends and new perspectives,''
+\emph{Applied Energy}, vol.~287, p.~116601, 2021,
+doi: 10.1016/j.apenergy.2021.116601.
+
+\bibitem{zangrando2022quasi}
+N.~Zangrando, P.~Fraternali, M.~Petri, N.~O.~P. Vago, and
+S.~L.~H. Gonzalez, ``Anomaly detection in quasi-periodic energy
+consumption data series: A comparison of algorithms,''
+\emph{Energy Informatics}, vol.~5, Suppl.~4, 2022,
+doi: 10.1186/s42162-022-00230-7.
+
+\bibitem{gebru2021datasheets}
+T.~Gebru \emph{et al.}, ``Datasheets for datasets,''
+\emph{Communications of the ACM}, vol.~64, no.~12, pp. 86--92,
+2021, doi: 10.1145/3458723.
+
+\bibitem{ratner2016data}
+A.~Ratner, C.~De Sa, S.~Wu, D.~Selsam, and C.~Ré,
+``Data programming: Creating large training sets, quickly,''
+in \emph{Proc. Advances in Neural Information Processing
+Systems (NeurIPS)}, 2016, pp. 3567--3575.
+
+\bibitem{ratner2017snorkel}
+A.~Ratner \emph{et al.}, ``Snorkel: Rapid training data creation
+with weak supervision,'' \emph{Proc. VLDB Endow.},
+vol.~11, no.~3, pp. 269--282, 2017.
+
 \bibitem{goodfellow2014}
 I.~J. Goodfellow \emph{et al.}, ``Generative adversarial nets,''
 in \emph{Advances in Neural Information Processing Systems
@@ -443,6 +893,25 @@ Vancouver, Canada, 2019, pp. 5509--5519.
 P.~Tang \emph{et al.}, ``Time series data augmentation for
 energy consumption data based on improved TimeGAN,''
 \emph{Sensors}, vol.~25, no.~2, p.~493, Jan. 2025.
+
+\bibitem{sathishkumar2020}
+V.~E. Sathishkumar \emph{et al.}, ``Industry energy consumption prediction
+using data mining techniques,''
+\emph{Int. J. Energy, Inf. Commun.}, vol.~11, no.~1, pp. 7--14, 2020.
+
+\bibitem{diaconu2025}
+B.~Diaconu, ``Short-term load forecasting on a steel plant energy dataset
+-- Part II: Machine learning models, time-aware validation and
+interpretability,'' 2025.
+
+\bibitem{mao2024}
+Z.~Mao \emph{et al.}, ``Research on anomaly detection model for power
+consumption data based on time-series reconstruction,''
+\emph{Energies}, vol.~17, no.~19, 2024.
+
+\bibitem{sarr2024}
+J.~G. Sarr \emph{et al.}, ``Power factor anomaly detection using data
+stream summaries,'' 2024.
 
 \end{thebibliography}
 

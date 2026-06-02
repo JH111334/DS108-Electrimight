@@ -8,7 +8,7 @@
 
 **For what purpose was the dataset created?**
 
-Bộ dữ liệu được tạo ra để hỗ trợ nghiên cứu về **dự báo tiêu thụ điện năng công nghiệp** và **phát hiện bất thường dựa trên vật lý** (physics-informed anomaly detection) trong ngành thép.
+Bộ dữ liệu được tạo ra để hỗ trợ nghiên cứu về **dự báo tiêu thụ điện năng công nghiệp** và **sàng lọc rủi ro tải điện dạng proxy** trong bối cảnh tải công nghiệp.
 Khác với các tập dữ liệu chuỗi thờ gian thông thường chỉ chứa giá trị đo lường, Electrimight bổ sung các đặc trưng miền tần số (DWT), miền vật lý (công suất biểu kiến, góc lệch pha), và nhãn bất thường có giải thích — tạo thành một methodological benchmark cho cộng đồng nghiên cứu về tiết kiệm năng lượng công nghiệp.
 
 **Who created the dataset and on behalf of which entity?**
@@ -34,7 +34,7 @@ Mỗi dòng là một **mốc đo lường 15 phút** tại nhà máy thép POSC
 **How many instances are there in total?**
 
 - **35.040 mẫu** (một năm đầy đủ, không thiếu mẫu nào).
-- **64 cột** (11 gốc + 53 đặc trưng kỹ thuật và nhãn).
+- **69 cột** sau phần mở rộng physical-domain dùng cả reactive lagging/leading và power-factor đi kèm.
 
 **Does the dataset contain all possible instances or is it a sample?**
 
@@ -47,7 +47,7 @@ Mỗi mẫu bao gồm:
 - **Khí tượng:** Nhiệt độ, mưa, độ ẩm, gió (gốc + 7 đặc trưng phái sinh).
 - **Thờ gian:** Lag, rolling statistics, mã hóa chu kỳ.
 - **Tần số:** 16 đặc trưng wavelet (DWT db4, L=3) trên cửa sổ 64 mẫu.
-- **Vật lý:** Công suất biểu kiến (S), góc lệch pha (φ).
+- **Vật lý:** Công suất biểu kiến (S), reactive net/total, S_net, góc lệch pha lagging/leading.
 - **Nhãn:** 3 loại bất thường (idling, leakage, overload) kèm confidence score.
 
 **Is there a label or target associated with each instance?**
@@ -99,7 +99,7 @@ Không. Dữ liệu chỉ liên quan đến thiết bị công nghiệp và môi
 
 **Any other comments?**
 
-Dataset đã trải qua pipeline kiểm định nghiêm ngặt: 49 unit tests (pytest), zero data leakage audit, và validation theo chuẩn ISO 50001 / IEEE 519.
+Dataset đã trải qua pipeline kiểm định nghiêm ngặt: 50 unit tests (pytest), zero data leakage audit, và validation theo chuẩn ISO 50001 / IEEE 519.
 
 ---
 
@@ -176,7 +176,7 @@ Có, pipeline gồm 7 bước chính:
 | Weather Integration | Resample hourly→15min (linear interpolation), engineer 7 derived weather features, left-join với steel data |
 | Time-Domain FE | Lag (1,2,4,96), rolling statistics (24,48,96), cyclical NSM encoding |
 | Frequency-Domain FE | DWT db4-L3 trên cửa sổ 64 mẫu (mean, std, energy, max_abs cho cA3, cD3, cD2, cD1) |
-| Physical-Domain FE | Tính S = √(P²+Q²) và φ = arccos(PF_lag) |
+| Physical-Domain FE | Tính S, Q_net, Q_total, S_net và φ từ power factor lagging/leading |
 | Anomaly Labeling | Idling (IEEE 519 PF<0.50), Leakage (ISO 50001 +5% baseline), Overload (P99.5 + reactive surge) |
 | Quality Audit | 49 pytest tests, data assertions (PF∈[0,1], P≥0, anomaly rate<10%, no nulls) |
 
@@ -196,7 +196,9 @@ Có, toàn bộ mã nguồn được đặt trong thư mục `src/` và notebook
 
 **Any other comments?**
 
-Pipeline đảm bảo **zero data leakage**: tất cả rolling windows dùng `center=False`, lag chỉ nhìn về quá khứ (`shift>0`), weather merge không dùng back-fill, và anomaly labels được tính như ground truth (không phải feature huấn luyện).
+Pipeline đảm bảo **zero data leakage**: tất cả rolling windows dùng `center=False`, lag chỉ nhìn về quá khứ (`shift>0`), weather merge không dùng back-fill, và anomaly labels được tính như **physics-informed weak/proxy labels** (không phải feature huấn luyện, cũng không phải ground truth lỗi vận hành đã được SCADA xác nhận).
+
+Pipeline hiện có thêm schema contract trong `src/schema.py`. Với dataset ngoài ngành thép, người dùng cần map tối thiểu cột timestamp và active energy/power; các cột reactive power, power factor, load type và weather là optional nhưng giúp tạo bộ đặc trưng giàu ngữ cảnh hơn. Vì vậy, project nên được hiểu là một pipeline có thể mở rộng cho meter data công nghiệp/nông nghiệp, không phải hệ thống plug-and-play cho mọi ngành mà không cần schema mapping.
 
 ---
 
@@ -207,7 +209,7 @@ Pipeline đảm bảo **zero data leakage**: tất cả rolling windows dùng `c
 Dataset đã được sử dụng nội bộ cho:
 - Đánh giá tác động của kỹ thuật đặc trưng wavelet đến khả năng phát hiện bất thường.
 - So sánh GAN augmentation vs SMOTE cho dữ liệu chuỗi thờ gian công nghiệp.
-- Kiểm định pipeline tiền xử lý với 49 unit tests.
+- Kiểm định pipeline tiền xử lý với 50 unit tests.
 
 **Is there a repository that links to any or all papers or systems that use the dataset?**
 
@@ -250,8 +252,9 @@ Có, dự kiến sau khi hoàn thiện đồ án, thông qua:
 **How will the dataset be distributed?**
 
 Dạng CSV (`steel_final.csv`) kèm theo:
-- File metadata này (DATASHEET.md).
-- Data Codebook (CODEBOOK.csv).
+- File metadata này (`metadata/dataset/DATASHEET.md`).
+- Data Codebook (`metadata/dataset/CODEBOOK.csv`).
+- Pipeline metadata (`metadata/pipeline/`).
 - Notebook minh họa pipeline (`notebooks/`).
 
 **When will the dataset be distributed?**

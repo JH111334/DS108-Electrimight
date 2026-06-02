@@ -58,8 +58,8 @@ Không chứa PII; không cần ethical review.
 
 \noindent\textbf{4. Preprocessing.}
 \textit{Was any preprocessing done?}
-Có. Pipeline 7 bước: cleaning (loại trùng, nội suy, scale PF), weather integration (resample 1h$\rightarrow$15min, engineer 7 đặc trưng), time-domain FE (lag, rolling, cyclical encoding), DWT wavelet (db4-L3, cửa sổ 64), physical-domain FE ($S$, $\varphi$), anomaly labeling (IEEE~519 / ISO~50001), và GAN augmentation (tùy chọn).
-49 unit tests đảm bảo tính đúng đắn.
+Có. Pipeline 7 bước: cleaning (loại trùng, nội suy, scale PF), weather integration (resample 1h$\rightarrow$15min, engineer 7 đặc trưng), time-domain FE (lag, rolling, cyclical encoding), DWT wavelet (db4-L3, cửa sổ 64), physical-domain FE ($S$, $\varphi$), anomaly labeling theo \texttt{metadata/dataset/LABELING\_GUIDELINE.md} (IEEE~519 / ISO~50001, confidence score, explanation), và GAN augmentation (tùy chọn).
+50 unit tests đảm bảo tính đúng đắn.
 Zero data leakage: rolling `center=False`, lag `shift$>$0`, weather merge không `bfill`.
 Dữ liệu thô được lưu trong `data/bronze/`; đã xử lý trong `data/gold/`.
 
@@ -69,10 +69,29 @@ Phù hợp cho: dự báo tải điện ngắn hạn (STLF), phân loại chế 
 \textbf{Không nên} dùng cho quyết định pháp lý hoặc hệ thống SCADA real-time mà không qua thử nghiệm an toàn.
 Nhãn bất thường dựa trên ngưỡng vật lý cố định; có thể cần điều chỉnh cho nhà máy khác.
 
+\begin{table*}[htbp]
+\caption{LIMITATIONS, RISKS, VÀ BIỆN PHÁP GIẢM THIỂU}
+\label{tab:datasheet_risks}
+\centering
+\small
+\begin{tabular}{@{}p{2.7cm}p{5.1cm}p{5.1cm}@{}}
+\toprule
+Nhóm rủi ro & Mô tả & Cách xử lý trong nghiên cứu \\
+\midrule
+Ground truth & Không có nhật ký bảo trì hoặc cảnh báo SCADA để xác nhận lỗi thật. & Gọi nhãn là weak/proxy labels, báo cáo tỷ lệ, overlap, confidence score, và không dùng như chẩn đoán cuối cùng. \\
+Thiên lệch địa lý & Một nhà máy tại Gwangyang, Hàn Quốc; khí hậu và lịch vận hành có thể khác Việt Nam hoặc vùng nhiệt đới. & Khuyến nghị hiệu chỉnh threshold theo từng nhà máy; không tuyên bố tổng quát hóa tuyệt đối. \\
+Dữ liệu thời tiết & Open-Meteo là dữ liệu tái phân tích theo tọa độ, không phải đo trực tiếp trong nhà máy; resampling 1h$\rightarrow$15min có thể làm mượt cực trị. & Mô tả weather như contextual enrichment; không coi là driver chính của tải công nghiệp. \\
+An toàn vận hành & Dùng sai nhãn để điều khiển SCADA real-time có thể gây quyết định bảo trì hoặc dừng máy không phù hợp. & Cảnh báo chỉ dùng cho nghiên cứu/offline analytics; cần chuyên gia điện xác nhận trước khi triển khai. \\
+Bảo mật/kinh doanh & Dù không có PII, dữ liệu tiêu thụ 15 phút có thể tiết lộ pattern sản xuất nếu áp dụng cho nhà máy tư nhân. & Chỉ dùng dữ liệu đã công khai từ UCI; khuyến nghị kiểm tra quyền phân phối khi tái dùng cho doanh nghiệp khác. \\
+Synthetic data & FC-GAN có thể tạo mẫu không đại diện hoặc làm loãng phân phối bất thường hiếm. & Báo cáo sai số thống kê mean/std và correlation MAE; không dùng synthetic data làm bằng chứng lỗi thật. \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
 \noindent\textbf{6. Distribution.}
 \textit{How will the dataset be distributed?}
 Dự kiến phát hành qua Kaggle và Zenodo sau khi hoàn thiện báo cáo (Q3/2026).
-Kèm theo: CSV + CODEBOOK.csv + notebook minh họa.
+Kèm theo: CSV + \texttt{metadata/dataset/CODEBOOK.csv} + notebook minh họa.
 License: UCI (gốc) + MIT (đặc trưng kỹ thuật).
 
 \noindent\textbf{7. Maintenance.}

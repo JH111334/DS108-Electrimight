@@ -9,7 +9,7 @@ Môi trường phát triển sử dụng Python~3.12 với các thư viện chí
 Pandas~2.1 và NumPy~1.26 cho xử lý dữ liệu,
 Scikit-learn~1.4 cho chuẩn hóa và chia tách,
 PyWavelets~1.6 cho biến đổi wavelet,
-TensorFlow~2.21 cho huấn luyện GAN,
+TensorFlow~2.16.1 cho huấn luyện GAN,
 và Matplotlib~3.8 cùng Seaborn~0.13 cho trực quan hóa.
 Mã nguồn và pipeline được quản lý bằng Git với cấu trúc modular (OOP),
 đảm bảo khả năng tái sử dụng và mở rộng.
@@ -47,7 +47,7 @@ Các điểm kiểm tra bao gồm:
     \item \textbf{Lag features:} Xác nhận chỉ sử dụng \texttt{shift(lag)} với $\text{lag} > 0$ (nhìn về quá khứ).
     \item \textbf{Weather merge:} Xác nhận không sử dụng \texttt{bfill} (back-fill) --- chỉ dùng dữ liệu thời tiết đã quan sát tại hoặc trước timestamp.
     \item \textbf{GAN scaler:} \texttt{MinMaxScaler.fit\_transform()} được fit trên toàn bộ dữ liệu trước khi huấn luyện GAN. Điều này \textbf{không} gây leakage cho mô hình downstream vì: (i) downstream model sẽ fit scaler riêng trên tập train; (ii) scaler là phép biến đổi tuyến tính đơn giản; (iii) GAN chỉ sinh synthetic data, không phải model dự đoán.
-    \item \textbf{Anomaly labels:} Rolling mean trong \texttt{label\_leakage} tính trên toàn bộ chuỗi. Đây là việc xác định ground truth dựa trên vật lý (ISO 50001 baseline), không phải feature dùng để huấn luyện model.
+    \item \textbf{Anomaly labels:} Rolling mean trong \texttt{label\_leakage} tính trên toàn bộ chuỗi. Đây là bước tạo \textit{physics-informed weak labels} dựa trên baseline ISO~50001, không phải feature dùng để huấn luyện model. Vì không có nhật ký bảo trì hoặc cảnh báo SCADA làm nhãn chuẩn, các nhãn này được diễn giải như sự kiện bất thường ứng viên, không phải ground truth tuyệt đối.
 \end{enumerate}
 
 Kết quả audit xác nhận pipeline không chứa data leakage.
@@ -59,15 +59,14 @@ tuân thủ nguyên tắc causal learning cho chuỗi thời gian.
 Hiệu quả của pipeline được đánh giá qua ba nhóm chỉ số:
 \begin{itemize}
     \item \textbf{Độ trung thực thống kê:} So sánh trung bình, độ lệch chuẩn, và các phân vị (25\%, 50\%, 75\%) giữa dữ liệu thực và tổng hợp.
-    Sai số tương đối dưới 5\% được coi là chấp nhận được.
-    \item \textbf{Bảo toàn cấu trúc phân phối:} Sử dụng PCA và t-SNE để chiếu dữ liệu xuống 2D;
-độ chồng chéo (overlap) trực quan giữa các điểm thực và tổng hợp phản ánh mức độ bảo toàn phân phối đa chiều.
-    \item \textbf{Bảo toàn ma trận tương quan:} Tính sai số Frobenius $\| \mathbf{R}_{\text{real}} - \mathbf{R}_{\text{syn}} \|_F$
+    Sai số tương đối được báo cáo riêng cho từng thống kê; trong baseline FC-GAN, sai số mean dưới 10\% và sai số std dưới 5\% được xem là mức tham chiếu chấp nhận được ban đầu.
+    \item \textbf{Bảo toàn cấu trúc phân phối:} So sánh các thống kê bậc một và ma trận tương quan giữa dữ liệu thực và tổng hợp; PCA/t-SNE được xem là kiểm tra trực quan bổ sung khi cần.
+    \item \textbf{Bảo toàn ma trận tương quan:} Tính sai số tuyệt đối trung bình giữa $\mathbf{R}_{\text{real}}$ và $\mathbf{R}_{\text{syn}}$
 giữa ma trận tương quan của dữ liệu thực và synthetic.
 Giá trị nhỏ chứng tỏ các mối quan hệ tuyến tính giữa đặc trưng được bảo toàn tốt.
 \end{itemize}
 
-Ngoài ra, chúng tôi sử dụng 49 unit tests (pytest) để đảm bảo tính đúng đắn của các module core,
+Ngoài ra, chúng tôi sử dụng 50 unit tests (pytest) để đảm bảo tính đúng đắn của các module core,
 bao gồm data loader, assertions, và anomaly labeling.
 
 % =============================================================================

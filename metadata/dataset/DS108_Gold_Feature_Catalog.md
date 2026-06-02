@@ -1,6 +1,6 @@
 # DS108-Electrimight: Complete Feature Catalog — `data/gold/steel_final.csv`
 
-**Dataset shape:** 35,040 rows × 64 columns  
+**Dataset shape:** 35,040 rows × 69 columns after the generalized physical-feature extension  
 **Time range:** 2018-01-01 00:00 → 2018-12-31 23:45 (15-minute frequency)  
 **Location:** POSCO Gwangyang Steel Plant, South Korea
 
@@ -136,14 +136,19 @@ Four statistics are extracted per coefficient band:
 
 ---
 
-## 6. Physical-Domain — 2 features
+## 6. Physical-Domain — 7 features
 
 Engineered in `src/silver/physical_features.py` from the power-triangle relationships.
 
 | # | Name | Description | Formula / How Computed | Type | Unit | Range / Notes |
 |---|------|-------------|------------------------|------|------|---------------|
 | 54 | **Apparent_Power_S** | Apparent power (magnitude of power triangle) | `S = √(P² + Q²)` where `P = Usage_kWh`, `Q = Lagging_Current_Reactive.Power_kVarh` | float | kVA (here kWh-equivalent) | 0.0 → 175.35; mean=31.04, std=36.62 |
-| 55 | **Phase_Angle_Phi** | Phase angle between voltage and current | `φ = arccos(PF)` where `PF = Lagging_Current_Power_Factor` clipped to [0,1] | float | radians | 0.0 → π/2 (1.571); mean=0.520, std=0.383 |
+| 55 | **Reactive_Power_Q_Net** | Net reactive power | `Q_lagging - Q_leading` | float | kVArh | Uses both lagging and leading reactive components when available |
+| 56 | **Reactive_Power_Q_Total** | Total reactive magnitude | `abs(Q_lagging) + abs(Q_leading)` | float | kVArh | Better captures reactive stress for overload proxy evidence |
+| 57 | **Apparent_Power_S_Net** | Apparent power using net reactive power | `√(P² + Q_net²)` | float | kVA-equivalent | Complements legacy `Apparent_Power_S` |
+| 58 | **Phase_Angle_Phi** | Phase angle between voltage and current | `φ = arccos(PF)` where `PF = Lagging_Current_Power_Factor` clipped to [0,1] | float | radians | Backward-compatible lagging phase angle |
+| 59 | **Phase_Angle_Lagging_Phi** | Lagging phase-angle alias | `arccos(Lagging_Current_Power_Factor)` | float | radians | Explicit lagging PF-derived angle |
+| 60 | **Phase_Angle_Leading_Phi** | Leading phase angle | `arccos(Leading_Current_Power_Factor)` | float | radians | Optional when leading PF is present |
 
 > **Physical insight:** When `P` is flat but `Q` spikes (e.g., rotor jam), `S` inflates — a cable-overload warning. `Phase_Angle_Phi` provides a linear-scale view of power-factor degradation that is sharper than raw PF for ML models.
 
@@ -156,23 +161,23 @@ Engineered in `src/silver/anomaly_labels.py`. Labels are rule-based with confide
 ### Boolean Flags
 | # | Name | Description | Rule / How Computed | Type | Unit | Range / Notes |
 |---|------|-------------|---------------------|------|------|---------------|
-| 56 | **anomaly_idling** | Idling / energy-waste anomaly | `Light_Load` AND (`night` OR `weekend`) AND (`Usage_kWh > median`) AND (`PF < 0.50`) | bool | — | True: 10 (0.03 %); False: 35,030 |
-| 57 | **anomaly_leakage** | Gradual energy leakage / concept drift | `rolling_mean(Usage_kWh, 672)` > baseline + 5 %, where baseline = mean of first 4 weeks | bool | — | True: 2,336 (6.67 %); False: 32,704 |
-| 58 | **anomaly_overload** | Local overload / extreme point anomaly | `Usage_kWh > 99.5th percentile` AND (`Q > 99.5th percentile` OR `PF < 0.70`) | bool | — | True: 48 (0.14 %); False: 34,992 |
-| 59 | **anomaly_any** | Union of all three anomalies | `idling OR leakage OR overload` | bool | — | True: 2,388 (6.82 %); False: 32,652 |
+| 61 | **anomaly_idling** | Idling / energy-waste anomaly | `Light_Load` or low-load proxy AND (`night` OR `weekend`) AND (`Usage_kWh > median`) AND (`PF < 0.50`) | bool | — | True: 10 (0.03 %); False: 35,030 |
+| 62 | **anomaly_leakage** | Gradual energy leakage / concept drift | `rolling_mean(Usage_kWh, 672)` > baseline + 5 %, where baseline = mean of first 4 weeks | bool | — | True: 2,336 (6.67 %); False: 32,704 |
+| 63 | **anomaly_overload** | Local overload / extreme point anomaly | `Usage_kWh > 99.5th percentile` AND (`Q_total/Q_net/Q_lag/Q_lead high` OR `PF < 0.70`) | bool | — | True: 48 (0.14 %); False: 34,992 |
+| 64 | **anomaly_any** | Union of all three anomalies | `idling OR leakage OR overload` | bool | — | True: 2,388 (6.82 %); False: 32,652 |
 
 ### Confidence Scores
 | # | Name | Description | Formula | Type | Unit | Range / Notes |
 |---|------|-------------|---------|------|------|---------------|
-| 60 | **anomaly_idling_score** | Confidence for idling | `0.3·I(Light) + 0.3·I(off-hours) + 0.2·I(Usage>med) + 0.2·I(PF<0.50)` | float | — | 0.0 → 1.0; mean=0.438, std=0.220 |
-| 61 | **anomaly_leakage_score** | Confidence for leakage | Tiered: >20 %→1.0; >10 %→0.7; >5 %→0.4; else 0.0 | float | — | 0.0 → 1.0; mean=0.042, std=0.166 |
-| 62 | **anomaly_overload_score** | Confidence for overload | `0.5·I(Usage extreme) + 0.25·I(Q extreme) + 0.25·I(PF<0.70)` | float | — | 0.0 → 0.75; mean=0.080, std=0.121 |
-| 63 | **anomaly_max_score** | Maximum of the three scores | `max(idling_score, leakage_score, overload_score)` | float | — | 0.0 → 1.0; mean=0.454, std=0.225 |
+| 65 | **anomaly_idling_score** | Confidence for idling | `0.3·I(Light) + 0.3·I(off-hours) + 0.2·I(Usage>med) + 0.2·I(PF<0.50)` | float | — | 0.0 → 1.0; mean=0.438, std=0.220 |
+| 66 | **anomaly_leakage_score** | Confidence for leakage | Tiered: >20 %→1.0; >10 %→0.7; >5 %→0.4; else 0.0 | float | — | 0.0 → 1.0; mean=0.042, std=0.166 |
+| 67 | **anomaly_overload_score** | Confidence for overload | `0.5·I(Usage extreme) + 0.25·I(Q extreme) + 0.25·I(PF<0.70)` | float | — | 0.0 → 0.75; mean=0.080, std=0.121 |
+| 68 | **anomaly_max_score** | Maximum of the three scores | `max(idling_score, leakage_score, overload_score)` | float | — | 0.0 → 1.0; mean=0.454, std=0.225 |
 
 ### Explanation
 | # | Name | Description | Formula / How Computed | Type | Unit | Range / Notes |
 |---|------|-------------|------------------------|------|------|---------------|
-| 64 | **anomaly_explanation** | Human-readable reason for the top anomaly | Picks the label with highest score; generates text via `explain_idling`, `explain_leakage`, or `explain_overload`. If max score < 0.1 → "No significant anomaly detected". | object / str | — | Most common: "Idling detected: usage above median" (10,493 rows); "Idling detected: light load condition; nighttime off-hours; usage above median" (5,298 rows); leakage explanations appear for high leakage-score rows. |
+| 69 | **anomaly_explanation** | Human-readable reason for the top anomaly | Picks the label with highest score; generates text via `explain_idling`, `explain_leakage`, or `explain_overload`. If max score < 0.1 → "No significant anomaly detected". | object / str | — | Most common explanations summarize the strongest proxy evidence. |
 
 ---
 
@@ -185,9 +190,9 @@ Engineered in `src/silver/anomaly_labels.py`. Labels are rule-based with confide
 | 3. Weather-Derived | 7 |
 | 4. Time-Domain (lag + rolling + trig) | 15 |
 | 5. Frequency-Domain (DWT) | 16 |
-| 6. Physical-Domain | 2 |
+| 6. Physical-Domain | 7 |
 | 7. Anomaly Labels | 9 |
-| **Total** | **64** |
+| **Total** | **69** |
 
 ---
 
@@ -197,6 +202,6 @@ Engineered in `src/silver/anomaly_labels.py`. Labels are rule-based with confide
 2. **Weather** — `weather_loader.py` fetches Open-Meteo, resamples 1 h → 15 min, engineers 7 derived features, left-joins on `date`.
 3. **Time** — `time_features.py` adds lags (1,2,4,96), rolling stats (24,48,96), and NSM sin/cos.
 4. **Wavelet** — `wavelet_features.py` computes rolling DWT (`db4`, level 3, window 64) → 16 statistical features.
-5. **Physical** — `physical_features.py` computes `Apparent_Power_S` and `Phase_Angle_Phi`.
+5. **Physical** — `physical_features.py` computes `Apparent_Power_S`, `Q_net`, `Q_total`, `S_net`, and lagging/leading phase angles.
 6. **Anomaly** — `anomaly_labels.py` applies rule-based detectors with confidence scoring.
 7. **Gold** — `pipeline.py` saves final output to `data/gold/steel_final.csv`.

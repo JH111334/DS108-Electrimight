@@ -7,17 +7,24 @@ cho tập dữ liệu Tiêu thụ Điện năng Ngành thép.
 Bằng cách tích hợp thống kê miền thời gian, hệ số Biến đổi Wavelet rời rạc,
 và các đạo hàm dựa trên vật lý, framework đề xuất đã làm phong phú tập dữ liệu gốc
 từ 11 lên 64 đặc trưng.
-Ba lớp bất thường được gán nhãn bằng các ngưỡng vật lý dựa trên quy tắc,
+Ba lớp bất thường được gán nhãn như các \textit{physics-informed weak labels} bằng các ngưỡng vật lý dựa trên quy tắc,
 và một module tăng cường GAN đã tổng hợp 500 mẫu lớp thiểu số.
+Ablation study cho thấy time-domain features cải thiện dự báo tải trước 1 giờ,
+nhưng weather không cải thiện forecasting trong thí nghiệm này; với proxy anomaly labels,
+kết quả rule-free rất thấp, xác nhận cần nhãn SCADA/bảo trì để đánh giá lỗi thật độc lập.
 
 Các đóng góp chính là:
 \begin{itemize}
 \item Một framework kỹ thuật đặc trưng đa miền trích xuất đặc trưng thời gian, phổ, và vật lý
-\item Một chiến lược gán nhãn bất thường dựa trên vật lý phát hiện chạy không tải, rò rỉ, và quá tải mà không cần chú thích thủ công
-\item Một pipeline tăng cường GAN với độ trung thực thống kê bậc một được xác thực qua PCA và t-SNE
+\item Một chiến lược gán nhãn yếu dựa trên vật lý phát hiện các sự kiện ứng viên như chạy không tải, rò rỉ, và quá tải khi chưa có nhật ký SCADA/bảo trì làm ground truth
+\item Một pipeline tăng cường GAN với độ trung thực thống kê bậc một được xác thực qua sai số mean/std và correlation MAE
+\item Một ablation study tách forecasting, proxy-label classification, và rule-free validation để tránh overclaim
 \end{itemize}
 
-Hướng nghiên cứu trong tương lai sẽ khám phá ngưỡng thích ứng qua phân cụm,
+Hướng nghiên cứu trong tương lai sẽ đối chiếu proxy labels với nhật ký bảo trì hoặc cảnh báo SCADA nếu có,
+khám phá ngưỡng thích ứng qua phân cụm,
+MODWT hoặc lựa chọn wavelet thích ứng để kiểm tra độ ổn định của đặc trưng tần số,
+đối chiếu các đặc trưng vật lý $S$ và $\varphi$ với cảm biến asset-level nếu có,
 kiến trúc TimeGAN để bảo toàn thời gian tốt hơn,
 và đánh giá hạ nguồn sử dụng các mô hình LSTM và Transformer.
 

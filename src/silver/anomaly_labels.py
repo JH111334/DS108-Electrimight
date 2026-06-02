@@ -1,207 +1,135 @@
-"""
-Anomaly Labeling Module with Guideline-Based Confidence Scoring
+"""Create auditable proxy anomaly labels for industrial electricity datasets."""
 
-Dinh nghia va gan nhan cac co che bat thuong vat ly tren tap du lieu
-tieu thu dien nang ngành thep, co kem theo Confidence Score va giai thich
-(explainability) dua tren tai lieu huong dan (docs/LABELING_GUIDELINE.md).
-
-Cac loai bat thuong:
-  1. Idling (Chay khong tai keo dai): Light Load + cuoi tuan/dem
-     nhung Usage_kWh cao bat thuong + Power Factor thap.
-  2. Leakage (Ro ri nang luong & Concept Drift): Gia tang tiem tien
-     cua Usage_kWh o cung dieu kien van hanh qua cac chu ky.
-  3. Local Overload (Qua tai cuc bo): Xung Usage_kWh cuc dai +
-     bung no reactive power + sup do Power Factor.
-
-Tham chieu:
-  - docs/LABELING_GUIDELINE.md
-  - IEEE 519-2014 (Power Factor thresholds)
-  - ISO 50001:2018 (Energy baseline & drift)
-  - "Huong dan do an tien xu ly du lieu" - muc III.
-"""
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
+from src.schema import (
+    ACTIVE_POWER_COL,
+    LAGGING_PF_COL,
+    LAGGING_REACTIVE_COL,
+    LEADING_PF_COL,
+    LEADING_REACTIVE_COL,
+    LOAD_TYPE_COL,
+    NSM_COL,
+    WEEK_STATUS_COL,
+)
 
-# ── Idling Detection ────────────────────────────────────────────────
+
+def _false_series(index: pd.Index) -> pd.Series:
+    """Return an aligned false series."""
+    return pd.Series(False, index=index)
+
+
+def _off_hours(df: pd.DataFrame) -> pd.Series:
+    """Infer off-hours from timestamp-derived context."""
+    if NSM_COL in df.columns:
+        is_night = (df[NSM_COL] < 21600) | (df[NSM_COL] > 75600)
+    else:
+        is_night = _false_series(df.index)
+
+    if WEEK_STATUS_COL in df.columns:
+        is_weekend = df[WEEK_STATUS_COL].astype(str).eq("Weekend")
+    else:
+        is_weekend = _false_series(df.index)
+
+    return is_night | is_weekend
+
+
+def _light_load_condition(df: pd.DataFrame) -> pd.Series:
+    """Use Load_Type when available, otherwise derive a low-load proxy."""
+    if LOAD_TYPE_COL in df.columns:
+        return df[LOAD_TYPE_COL].astype(str).eq("Light_Load")
+    threshold = df[ACTIVE_POWER_COL].quantile(0.33)
+    return df[ACTIVE_POWER_COL] <= threshold
+
+
+def _effective_power_factor(df: pd.DataFrame) -> pd.Series:
+    """Return the most reliable PF signal for rule thresholds."""
+    if LAGGING_PF_COL in df.columns:
+        return pd.to_numeric(df[LAGGING_PF_COL], errors="coerce").fillna(1.0)
+    if LEADING_PF_COL in df.columns:
+        return pd.to_numeric(df[LEADING_PF_COL], errors="coerce").fillna(1.0)
+    return pd.Series(1.0, index=df.index)
+
+
+def _reactive_magnitude(df: pd.DataFrame) -> pd.Series:
+    """Return the strongest available reactive-power magnitude."""
+    candidates = [
+        col
+        for col in [
+            LAGGING_REACTIVE_COL,
+            LEADING_REACTIVE_COL,
+            "Reactive_Power_Q_Total",
+            "Reactive_Power_Q_Net",
+        ]
+        if col in df.columns
+    ]
+    if not candidates:
+        return pd.Series(0.0, index=df.index)
+    values = df[candidates].apply(pd.to_numeric, errors="coerce").abs()
+    return values.max(axis=1).fillna(0.0)
+
 
 def label_idling(df: pd.DataFrame) -> pd.Series:
-    """
-    Phat hien hien tuong chay khong tai keo dai (Idling / Energy Waste).
-
-    Dieu kien dong thoi (AND):
-      - Load_Type == "Light_Load"
-      - WeekStatus == "Weekday" nhung NSM thuoc khung dem, HOAC WeekStatus == "Weekend"
-      - Usage_kWh > nguong trung vi (duy tri cao bat thuong)
-      - Lagging_Current_Power_Factor < 0.50 (IEEE 519 severe threshold)
-
-    Args:
-        df: DataFrame chua cac cot: Load_Type, WeekStatus, NSM,
-            Usage_kWh, Lagging_Current_Power_Factor.
-
-    Returns:
-        pd.Series boolean danh dau cac diem nghi ngo idling.
-    """
-    is_light = df["Load_Type"] == "Light_Load"
-
-    # Khung dem: NSM < 21600 (truoc 6h sang) hoac NSM > 75600 (sau 21h)
-    is_night = (df["NSM"] < 21600) | (df["NSM"] > 75600)
-    is_weekend = df["WeekStatus"] == "Weekend"
-    is_off_hours = is_night | is_weekend
-
-    usage_median = df["Usage_kWh"].median()
-    is_high_usage = df["Usage_kWh"] > usage_median
-
-    # IEEE 519: PF < 0.50 la severe penalty zone
-    is_low_pf = df["Lagging_Current_Power_Factor"] < 0.50
-
+    """Detect sustained high usage during light/off-hour operating context."""
+    is_light = _light_load_condition(df)
+    is_off_hours = _off_hours(df)
+    is_high_usage = df[ACTIVE_POWER_COL] > df[ACTIVE_POWER_COL].median()
+    is_low_pf = _effective_power_factor(df) < 0.50
     return is_light & is_off_hours & is_high_usage & is_low_pf
 
 
 def score_idling(df: pd.DataFrame) -> pd.Series:
-    """
-    Tinh confidence score cho nhan Idling.
-
-    Score = 0.3 * I(Light_Load) + 0.3 * I(Off-hours)
-          + 0.2 * I(Usage > median) + 0.2 * I(PF < 0.50)
-
-    Args:
-        df: DataFrame dau vao.
-
-    Returns:
-        pd.Series float trong [0, 1].
-    """
+    """Score idling proxy evidence in the range [0, 1]."""
     score = pd.Series(0.0, index=df.index)
-
-    is_light = df["Load_Type"] == "Light_Load"
-    is_night = (df["NSM"] < 21600) | (df["NSM"] > 75600)
-    is_weekend = df["WeekStatus"] == "Weekend"
-    is_off_hours = is_night | is_weekend
-    is_high_usage = df["Usage_kWh"] > df["Usage_kWh"].median()
-    is_low_pf = df["Lagging_Current_Power_Factor"] < 0.50
-
-    score += 0.3 * is_light.astype(float)
-    score += 0.3 * is_off_hours.astype(float)
-    score += 0.2 * is_high_usage.astype(float)
-    score += 0.2 * is_low_pf.astype(float)
-
+    score += 0.3 * _light_load_condition(df).astype(float)
+    score += 0.3 * _off_hours(df).astype(float)
+    score += 0.2 * (df[ACTIVE_POWER_COL] > df[ACTIVE_POWER_COL].median()).astype(float)
+    score += 0.2 * (_effective_power_factor(df) < 0.50).astype(float)
     return score.clip(0.0, 1.0)
 
-
-# ── Leakage / Concept Drift Detection ──────────────────────────────
 
 def label_leakage(
     df: pd.DataFrame,
     window: int = 672,
     threshold_pct: float = 5.0,
 ) -> pd.Series:
-    """
-    Phat hien ro ri nang luong / troi dac tinh (Concept Drift).
-
-    Nguyen ly: So sanh trung binh truot dai han voi baseline theo mua
-    (seasonal baseline). Baseline duoc tinh bang trung binh cua cung
-    khung gio (dayofweek + hour) tren toan bo dataset, loai bo anh huong
-    cua chu ky tuan va mua vu. Khi rolling mean vuot qua nguong % so voi
-    baseline seasonal, do la dau hieu suy thoai hieu suat khong giai
-    thich duoc boi chu ky van hanh thong thuong.
-
-    ISO 50001: Nguong canh bao +5% so voi baseline.
-
-    Args:
-        df: DataFrame chua cot Usage_kWh (da sap xep theo thoi gian).
-        window: Kich thuoc cua so truot (mac dinh 672 = 1 tuan @ 15 min).
-        threshold_pct: Nguong tang % so voi baseline de danh dau leakage.
-
-    Returns:
-        pd.Series boolean danh dau cac diem nghi ngo leakage.
-    """
-    rolling_mean = df["Usage_kWh"].rolling(window, min_periods=1).mean()
-
-    # Baseline = mean of first 4 weeks (2,688 samples @ 15min)
-    # Using 4 weeks instead of 1 week avoids bias from an atypical startup week.
-    # If data is shorter than 4 weeks, use all available data.
+    """Detect gradual usage drift above a rolling energy baseline."""
+    rolling_mean = df[ACTIVE_POWER_COL].rolling(window, min_periods=1).mean()
     baseline_window = min(window * 4, len(df))
-    baseline = df["Usage_kWh"].iloc[:baseline_window].mean()
-
+    baseline = df[ACTIVE_POWER_COL].iloc[:baseline_window].mean()
     pct_increase = (rolling_mean - baseline) / baseline * 100
     return pct_increase > threshold_pct
 
 
-def score_leakage(
-    df: pd.DataFrame,
-    window: int = 672,
-) -> pd.Series:
-    """
-    Tinh confidence score cho nhan Leakage.
-
-    Score phan cap theo muc do tang so voi baseline 4 tuan dau:
-      > 20% -> 1.0 (nguy hiem)
-      > 10% -> 0.7 (canh bao)
-      >  5% -> 0.4 (nhe)
-      <= 5% -> 0.0
-
-    Args:
-        df: DataFrame dau vao.
-        window: Kich thuoc cua so truot.
-
-    Returns:
-        pd.Series float trong [0, 1].
-    """
-    rolling_mean = df["Usage_kWh"].rolling(window, min_periods=1).mean()
-
+def score_leakage(df: pd.DataFrame, window: int = 672) -> pd.Series:
+    """Score leakage proxy evidence from baseline percentage increase."""
+    rolling_mean = df[ACTIVE_POWER_COL].rolling(window, min_periods=1).mean()
     baseline_window = min(window * 4, len(df))
-    baseline = df["Usage_kWh"].iloc[:baseline_window].mean()
-
+    baseline = df[ACTIVE_POWER_COL].iloc[:baseline_window].mean()
     pct_increase = (rolling_mean - baseline) / baseline * 100
 
     score = pd.Series(0.0, index=df.index)
     score = np.where(pct_increase > 20, 1.0, score)
     score = np.where((pct_increase > 10) & (pct_increase <= 20), 0.7, score)
     score = np.where((pct_increase > 5) & (pct_increase <= 10), 0.4, score)
-
     return pd.Series(score, index=df.index)
 
-
-# ── Local Overload Detection ───────────────────────────────────────
 
 def label_overload(
     df: pd.DataFrame,
     usage_percentile: float = 0.995,
     pf_threshold: float = 0.70,
 ) -> pd.Series:
-    """
-    Phat hien qua tai cuc bo (Local Overload & Extreme Point Anomalies).
-
-    Dieu kien dong thoi:
-      - Usage_kWh vuot percentile 99.5 (point anomaly - top 0.5%)
-      - Lagging_Current_Reactive.Power_kVarh cao bat thuong (bao hoa tu)
-      - Lagging_Current_Power_Factor sup do duoi nguong (IEEE 519 minimum)
-
-    Note: Du lieu nay khong co outlier theo Tukey 3*IQR do dac thu phan phoi,
-    nen su dung percentile-based thay cho IQR-based.
-
-    Args:
-        df: DataFrame chua cac cot dien nang.
-        usage_percentile: Phan vi nguong cho Usage_kWh. Mac dinh 0.995.
-        pf_threshold: Nguong Power Factor duoi do coi la sup do. Mac dinh 0.70.
-
-    Returns:
-        pd.Series boolean danh dau cac diem nghi ngo overload.
-    """
-    # Percentile-based outlier detection cho Usage_kWh
-    upper_bound = df["Usage_kWh"].quantile(usage_percentile)
-    is_extreme_usage = df["Usage_kWh"] > upper_bound
-
-    # Reactive power cung phai cao bat thuong
-    q_col = "Lagging_Current_Reactive.Power_kVarh"
-    upper_q = df[q_col].quantile(usage_percentile)
-    is_high_reactive = df[q_col] > upper_q
-
-    # Power Factor suy giam (IEEE 519: PF < 0.85 la khong chap nhan duoc)
-    is_low_pf = df["Lagging_Current_Power_Factor"] < pf_threshold
-
-    # Overload = Usage cuc cao AND (Reactive cao OR PF kem)
+    """Detect local overload proxies from usage spikes and reactive/PF stress."""
+    is_extreme_usage = df[ACTIVE_POWER_COL] > df[ACTIVE_POWER_COL].quantile(
+        usage_percentile
+    )
+    reactive = _reactive_magnitude(df)
+    is_high_reactive = reactive > reactive.quantile(usage_percentile)
+    is_low_pf = _effective_power_factor(df) < pf_threshold
     return is_extreme_usage & (is_high_reactive | is_low_pf)
 
 
@@ -210,29 +138,13 @@ def score_overload(
     usage_percentile: float = 0.995,
     pf_threshold: float = 0.70,
 ) -> pd.Series:
-    """
-    Tinh confidence score cho nhan Overload.
-
-    Score = 0.4 * I(Usage extreme outlier)
-          + 0.3 * I(Reactive extreme outlier)
-          + 0.3 * I(PF < threshold)
-
-    Args:
-        df: DataFrame dau vao.
-        usage_percentile: Phan vi nguong cho Usage_kWh.
-        pf_threshold: Nguong PF.
-
-    Returns:
-        pd.Series float trong [0, 1].
-    """
-    is_extreme_usage = df["Usage_kWh"] > df["Usage_kWh"].quantile(usage_percentile)
-
-    q_col = "Lagging_Current_Reactive.Power_kVarh"
-    is_high_reactive = df[q_col] > df[q_col].quantile(usage_percentile)
-
-    is_low_pf = df["Lagging_Current_Power_Factor"] < pf_threshold
-
-    # Score cao nhat khi ca 3 dieu kien dung, thap nhat khi chi co 1
+    """Score overload proxy evidence in the range [0, 1]."""
+    is_extreme_usage = df[ACTIVE_POWER_COL] > df[ACTIVE_POWER_COL].quantile(
+        usage_percentile
+    )
+    reactive = _reactive_magnitude(df)
+    is_high_reactive = reactive > reactive.quantile(usage_percentile)
+    is_low_pf = _effective_power_factor(df) < pf_threshold
     score = (
         0.5 * is_extreme_usage.astype(float)
         + 0.25 * is_high_reactive.astype(float)
@@ -241,45 +153,25 @@ def score_overload(
     return score.clip(0.0, 1.0)
 
 
-# ── Explanation ─────────────────────────────────────────────────────
-
 def explain_idling(row: pd.Series) -> str:
-    """
-    Tra ve giai thich van ban cho nhan Idling.
-
-    Args:
-        row: Mot hang DataFrame (Series) chua cac cot lien quan.
-
-    Returns:
-        str: Giai thich.
-    """
-    reasons = []
-    if row.get("Load_Type") == "Light_Load":
+    """Return a readable explanation for idling proxy evidence."""
+    reasons: list[str] = []
+    if row.get(LOAD_TYPE_COL) == "Light_Load":
         reasons.append("light load condition")
-    if (row.get("NSM", 0) < 21600) or (row.get("NSM", 0) > 75600):
+    if (row.get(NSM_COL, 0) < 21600) or (row.get(NSM_COL, 0) > 75600):
         reasons.append("nighttime off-hours")
-    if row.get("WeekStatus") == "Weekend":
+    if row.get(WEEK_STATUS_COL) == "Weekend":
         reasons.append("weekend")
-    if row.get("Usage_kWh", 0) > 0:  # so sanh voi median can truyen vao
+    if row.get(ACTIVE_POWER_COL, 0) > 0:
         reasons.append("usage above median")
-    if row.get("Lagging_Current_Power_Factor", 1.0) < 0.50:
+    pf = row.get(LAGGING_PF_COL, row.get(LEADING_PF_COL, 1.0))
+    if pf < 0.50:
         reasons.append("PF below 0.50 (IEEE 519 severe)")
-
     return "Idling detected: " + "; ".join(reasons) if reasons else "No idling signs"
 
 
 def explain_leakage(row: pd.Series, baseline: float, pct_increase: float) -> str:
-    """
-    Tra ve giai thich van ban cho nhan Leakage.
-
-    Args:
-        row: Mot hang DataFrame.
-        baseline: Gia tri baseline.
-        pct_increase: Phan tram tang.
-
-    Returns:
-        str: Giai thich.
-    """
+    """Return a readable explanation for leakage proxy evidence."""
     return (
         f"Leakage detected: rolling mean increased {pct_increase:.1f}% "
         f"above baseline ({baseline:.2f} kWh). Possible equipment degradation."
@@ -287,76 +179,44 @@ def explain_leakage(row: pd.Series, baseline: float, pct_increase: float) -> str
 
 
 def explain_overload(row: pd.Series) -> str:
-    """
-    Tra ve giai thich van ban cho nhan Overload.
-
-    Args:
-        row: Mot hang DataFrame.
-
-    Returns:
-        str: Giai thich.
-    """
-    reasons = []
-    pf = row.get("Lagging_Current_Power_Factor", 1.0)
+    """Return a readable explanation for overload proxy evidence."""
+    reasons: list[str] = []
+    pf = row.get(LAGGING_PF_COL, row.get(LEADING_PF_COL, 1.0))
     if pf < 0.70:
         reasons.append(f"PF collapsed to {pf:.2f} (< 0.70)")
-    if row.get("Usage_kWh", 0) > 0:
+    if row.get(ACTIVE_POWER_COL, 0) > 0:
         reasons.append("extreme usage spike")
-    if row.get("Lagging_Current_Reactive.Power_kVarh", 0) > 0:
+    if max(
+        row.get(LAGGING_REACTIVE_COL, 0),
+        row.get(LEADING_REACTIVE_COL, 0),
+        row.get("Reactive_Power_Q_Total", 0),
+    ) > 0:
         reasons.append("reactive power surge")
-
     return "Overload detected: " + "; ".join(reasons) if reasons else "No overload signs"
 
 
-# ── Orchestrator ────────────────────────────────────────────────────
-
 def label_all_anomalies(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Gan tat ca nhan bat thuong vao DataFrame, kem confidence score va giai thich.
-
-    Them 9 cot moi:
-      - anomaly_idling (bool)
-      - anomaly_idling_score (float [0,1])
-      - anomaly_leakage (bool)
-      - anomaly_leakage_score (float [0,1])
-      - anomaly_overload (bool)
-      - anomaly_overload_score (float [0,1])
-      - anomaly_any (bool) - OR cua 3 nhan tren
-      - anomaly_max_score (float) - max cua 3 score
-      - anomaly_explanation (str) - giai thich chinh
-
-    Args:
-        df: DataFrame day du (da qua cleaning, co cac cot dien nang).
-
-    Returns:
-        DataFrame moi = df goc + cac cot nhan bat thuong.
-    """
+    """Append proxy anomaly labels, scores, and explanations."""
     result = df.copy()
-
-    # Idling
     result["anomaly_idling"] = label_idling(df)
     result["anomaly_idling_score"] = score_idling(df)
-
-    # Leakage
     result["anomaly_leakage"] = label_leakage(df)
     result["anomaly_leakage_score"] = score_leakage(df)
-
-    # Overload
     result["anomaly_overload"] = label_overload(df)
     result["anomaly_overload_score"] = score_overload(df)
-
-    # Aggregate
     result["anomaly_any"] = (
         result["anomaly_idling"]
         | result["anomaly_leakage"]
         | result["anomaly_overload"]
     )
-    result["anomaly_max_score"] = result[
-        ["anomaly_idling_score", "anomaly_leakage_score", "anomaly_overload_score"]
-    ].max(axis=1)
+    score_cols = [
+        "anomaly_idling_score",
+        "anomaly_leakage_score",
+        "anomaly_overload_score",
+    ]
+    result["anomaly_max_score"] = result[score_cols].max(axis=1)
 
-    # Explanation (lay nhan co score cao nhat)
-    def _explain(row):
+    def _explain(row: pd.Series) -> str:
         scores = {
             "idling": row["anomaly_idling_score"],
             "leakage": row["anomaly_leakage_score"],
@@ -369,9 +229,7 @@ def label_all_anomalies(df: pd.DataFrame) -> pd.DataFrame:
             return explain_idling(row)
         if top == "overload":
             return explain_overload(row)
-        # leakage - can baseline & pct, dung generic
         return f"Leakage score: {scores[top]:.2f} - possible gradual energy degradation"
 
     result["anomaly_explanation"] = result.apply(_explain, axis=1)
-
     return result

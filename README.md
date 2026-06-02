@@ -23,12 +23,13 @@ Dự án tiền xử lý và mô hình hóa dữ liệu tiêu thụ điện năn
 DS108-Electritight/
 |
 ├── data/
-│   ├── raw/                        # [CHỈ ĐỌC] Tệp gốc + DATA_PROVENANCE.md
+│   ├── bronze/                     # [CHỈ ĐỌC] Tệp gốc + DATA_PROVENANCE.md
 │   │   ├── Steel_industry_data.csv
 │   │   ├── weather_gwangyang_2018.csv
 │   │   └── DATA_PROVENANCE.md      # Log thu thập & audit dữ liệu thô
-│   └── processed/                  # Dữ liệu đã qua toàn bộ pipeline
+│   ├── silver/                     # Dữ liệu sạch/intermediate
 │       ├── steel_clean.csv
+│   └── gold/                       # Dữ liệu thành phẩm
 │       └── steel_final.csv
 │
 ├── notebooks/
@@ -52,8 +53,9 @@ DS108-Electritight/
 │   ├── pipeline.py                 # Pipeline đầu-cuối tích hợp tất cả bước
 │   └── utils.py                    # Tiện ích dùng chung (logging, I/O, constants)
 │
-├── docs/
-│   └── LABELING_GUIDELINE.md       # Hướng dẫn gán nhãn dựa trên chuẩn ngành
+├── metadata/
+│   ├── dataset/                    # Codebook, datasheet, labeling guideline
+│   └── pipeline/                   # Stats, ablation, verification, insights
 │
 ├── tests/
 │   └── __init__.py
@@ -63,7 +65,7 @@ DS108-Electritight/
 └── README.md                       # Tài liệu này
 ```
 
-> **Quy tắc bất biến**: Thư mục `data/raw/` là **CHỈ ĐỌC**. Không có kịch bản hay notebook nào được phép ghi đè lên thư mục này. Mọi dữ liệu đã xử lý đều được lưu vào `data/processed/`.
+> **Quy tắc bất biến**: Thư mục `data/bronze/` là **CHỈ ĐỌC**. Không có kịch bản hay notebook nào được phép ghi đè lên thư mục này. Mọi dữ liệu thành phẩm được lưu vào `data/gold/`, metadata được lưu vào `metadata/`.
 
 ---
 
@@ -108,7 +110,7 @@ pip install -r requirements.txt
 ### Đặt dữ liệu
 Tải `Steel_industry_data.csv` và đặt vào:
 ```
-data/raw/Steel_industry_data.csv
+data/bronze/Steel_industry_data.csv
 ```
 > Tệp này có thể tải từ [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/851/steel+industry+energy+consumption).
 
@@ -130,14 +132,17 @@ Mở và chạy tuần tự:
 ### Chạy pipeline bằng script Python
 
 ```bash
-# Pipeline đầy đủ (bao gồm weather integration + anomaly detection)
-python -m src.pipeline
+# Pipeline đầy đủ + metadata/insights
+python -m src.run_all
+
+# Chỉ chạy pipeline tạo gold dataset
+python -m src.gold.pipeline
 
 # Audit dữ liệu thô
-python -m src.data_quality_audit
+python -m src.bronze.data_quality_audit
 
 # Thu thập dữ liệu thở tiết (nếu cần fetch lại)
-python -m src.weather
+python -m src.silver.weather
 ```
 
 ---

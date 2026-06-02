@@ -1,0 +1,19 @@
+{
+  "input_path": "C:\\Users\\GF63\\Documents\\DS108-Electrimight\\data\\gold\\steel_final.csv",
+  "synthetic_path": "data\\gold\\steel_synthetic_gan.csv",
+  "seed": 42,
+  "epochs": 2000,
+  "latent_dim": 100,
+  "minority_samples": 2388,
+  "training_samples_after_dropna": 2388,
+  "n_features": 55,
+  "n_synthetic": 500,
+  "real_mean_usage": 43.13562395309883,
+  "syn_mean_usage": 46.67396926879883,
+  "real_std_usage": 38.22021680567682,
+  "syn_std_usage": 39.67626190185547,
+  "mean_error_pct": 8.202837913153235,
+  "std_error_pct": 3.809620190229751,
+  "correlation_mae": 0.1157808179946601,
+  "correlation_max_abs_error": 0.6850114636606774
+}

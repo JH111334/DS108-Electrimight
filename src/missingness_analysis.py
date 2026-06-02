@@ -293,11 +293,11 @@ def mnar_range_analysis(
     global_rate = mask.mean()
     max_rate = rates.max()
     min_rate = rates.min()
-    chi2_stat = 0.0
+    # pandas already preserves Interval objects in binned.cat.categories.
 
     # Chi-square goodness-of-fit: observed missing count vs expected uniform
-    for interval, rate in missing_rates.items():
-        idx = binned == pd.Interval.from_string(interval.replace("[", "[").replace("]", "]").replace("(", "("))
+    for interval in binned.cat.categories:
+        idx = binned == interval
         # Simplified: so sánh rate với global rate
         pass
 

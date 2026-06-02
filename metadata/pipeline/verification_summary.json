@@ -1,0 +1,16 @@
+{
+  "assertions": {
+    "temporal_sorted": "PASS",
+    "no_duplicate_timestamps": "PASS",
+    "nsm_consistency": "PASS",
+    "no_nulls": "PASS",
+    "no_negative_usage": "PASS",
+    "pf_in_range": "PASS",
+    "physical_consistency": "PASS",
+    "anomaly_rate_below": "PASS",
+    "feature_count": "PASS"
+  },
+  "pytest": {
+    "summary": "52 passed"
+  }
+}

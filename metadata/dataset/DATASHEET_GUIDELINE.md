@@ -81,7 +81,7 @@ Rubric mức **Advanced (A)** yêu cầu cao hơn hẳn:
 **✅ Cách viết mức A:**
 > **Interpolation:** "Dữ liệu thời tiết hourly được nội suy xuống 15 phút bằng linear interpolation. Lựa chọn này dựa trên giả định rằng các đại lượng khí tượng (nhiệt độ, độ ẩm) biến đổi liên tục theo thời gian. Tuy nhiên, **giả định này có thể sai** trong trường hợp mưa rào đột ngột hoặc gió giật, nơi linear interpolation sẽ làm mất biên độ cực đại. Các phương pháp khác như spline cubic hoặc Kriging có thể bảo toàn biên độ tốt hơn nhưng phức tạp hơn và không được áp dụng trong phiên bản này.
 >
-> **GAN Augmentation:** "Chúng tôi sử dụng GAN fully-connected để tổng hợp 500 mẫu cho lớp thiểu số. Quyết định này được đưa ra vì tỷ lệ bất thường chỉ 2,8%. Tuy nhiên, **GAN có rủi ro mode collapse**: generator có thể chỉ học được một vài "mẫu" bất thường phổ biến và bỏ qua các biến thể hiếm. Chúng tôi xác thực bằng PCA/t-SNE overlap và sai số Frobenius của ma trận tương quan, nhưng **không có cách nào đảm bảo 100%** rằng synthetic data bao phủ toàn bộ không gian phân phối của lớp thiểu số."
+> **GAN Augmentation:** "Chúng tôi sử dụng FC-GAN để tổng hợp 500 mẫu cho lớp thiểu số. Quyết định này được đưa ra vì tỷ lệ proxy anomaly chỉ 6,815%. Tuy nhiên, **GAN có rủi ro mode collapse**: generator có thể chỉ học được một vài mẫu bất thường phổ biến và bỏ qua các biến thể hiếm. Chúng tôi xác thực bằng sai số mean/std và correlation MAE, nhưng **không có cách nào đảm bảo 100%** rằng synthetic data bao phủ toàn bộ không gian phân phối của lớp thiểu số."
 
 ---
 

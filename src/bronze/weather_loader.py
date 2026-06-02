@@ -31,10 +31,44 @@ def load_weather_data(csv_path: Path) -> pd.DataFrame:
     Returns:
         DataFrame với cột 'time' dạng datetime, làm index.
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, encoding="utf-8")
     df["time"] = pd.to_datetime(df["time"])
     df = df.set_index("time").sort_index()
     return df
+
+
+# ── Resample Hourly → Meter Grid ────────────────────────────────────
+
+def resample_weather_to_meter_index(
+    df: pd.DataFrame,
+    target_index: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    """
+    Resample weather data to the exact timestamp grid of a meter dataset.
+
+    Args:
+        df: Weather DataFrame with a datetime index.
+        target_index: Meter timestamps that weather must align to.
+
+    Returns:
+        Weather DataFrame aligned to target_index with linear interpolation.
+    """
+    full_index = pd.DatetimeIndex(target_index).sort_values().unique()
+    if full_index.empty:
+        raise ValueError("Không thể resample weather vì target_index rỗng.")
+
+    aligned = df.reindex(full_index)
+    numeric_cols = aligned.select_dtypes(include=[np.number]).columns.tolist()
+    aligned[numeric_cols] = aligned[numeric_cols].interpolate(
+        method="linear", limit_direction="both"
+    )
+
+    if aligned.isnull().sum().sum() > 0:
+        raise ValueError(
+            f"Weather resampling còn {aligned.isnull().sum().sum()} NaN sau nội suy."
+        )
+
+    return aligned
 
 
 # ── Resample Hourly → 15-min ────────────────────────────────────────
@@ -62,21 +96,7 @@ def resample_weather_to_15min(df: pd.DataFrame) -> pd.DataFrame:
     end = pd.Timestamp("2018-12-31 23:45:00")
     full_index = pd.date_range(start=start, end=end, freq="15min")
 
-    df_15 = df.reindex(full_index)
-
-    # Nội suy tuyến tính + extrapolate cho điểm ngoài rìa
-    numeric_cols = df_15.select_dtypes(include=[np.number]).columns.tolist()
-    df_15[numeric_cols] = df_15[numeric_cols].interpolate(
-        method="linear", limit_direction="both"
-    )
-
-    # Đảm bảo không còn NaN
-    if df_15.isnull().sum().sum() > 0:
-        raise ValueError(
-            f"Weather resampling còn {df_15.isnull().sum().sum()} NaN sau nội suy."
-        )
-
-    return df_15
+    return resample_weather_to_meter_index(df, full_index)
 
 
 # ── Derived Weather Features ────────────────────────────────────────
@@ -231,7 +251,8 @@ def integrate_weather(
     report["weather_raw_shape"] = weather_raw.shape
 
     # 2. Resample
-    weather_15 = resample_weather_to_15min(weather_raw)
+    meter_index = pd.DatetimeIndex(pd.to_datetime(steel_df["date"], dayfirst=True))
+    weather_15 = resample_weather_to_meter_index(weather_raw, meter_index)
     report["weather_resampled_shape"] = weather_15.shape
 
     # 3. Feature engineering

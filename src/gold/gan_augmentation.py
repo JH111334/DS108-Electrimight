@@ -118,49 +118,50 @@ def train_gan(
     from tensorflow import keras
 
     n_samples, n_features = real_data.shape
+    real_data = real_data.astype("float32")
 
     # Xây dựng và biên dịch Discriminator
     discriminator = build_discriminator(input_dim=n_features)
-    discriminator.compile(
-        loss="binary_crossentropy",
-        optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
-        metrics=["accuracy"],
-    )
-
     # Xây dựng Generator
     generator = build_generator(latent_dim=latent_dim, output_dim=n_features)
 
-    # Xây dựng GAN kết hợp (chỉ train Generator, đóng băng Discriminator)
-    discriminator.trainable = False
-    gan_input = keras.Input(shape=(latent_dim,))
-    gan_output = discriminator(generator(gan_input))
-    gan = keras.Model(gan_input, gan_output, name="gan")
-    gan.compile(
-        loss="binary_crossentropy",
-        optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
-    )
-
-    real_labels = np.ones((batch_size, 1))
-    fake_labels = np.zeros((batch_size, 1))
+    # Use an explicit training loop so discriminator and generator both update.
+    d_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    g_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    loss_fn = keras.losses.BinaryCrossentropy()
 
     for epoch in range(1, epochs + 1):
         # --- Huấn luyện Discriminator ---
         idx = np.random.randint(0, n_samples, batch_size)
-        real_batch = real_data[idx]
+        real_batch = tf.convert_to_tensor(real_data[idx], dtype=tf.float32)
+        real_labels = tf.ones((batch_size, 1), dtype=tf.float32)
+        fake_labels = tf.zeros((batch_size, 1), dtype=tf.float32)
 
-        noise = np.random.normal(0, 1, (batch_size, latent_dim))
-        fake_batch = generator.predict(noise, verbose=0)
-
-        d_loss_real = discriminator.train_on_batch(real_batch, real_labels)
-        d_loss_fake = discriminator.train_on_batch(fake_batch, fake_labels)
-        d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
+        noise = tf.random.normal((batch_size, latent_dim))
+        with tf.GradientTape() as d_tape:
+            fake_batch = generator(noise, training=True)
+            real_logits = discriminator(real_batch, training=True)
+            fake_logits = discriminator(fake_batch, training=True)
+            d_loss_real = loss_fn(real_labels, real_logits)
+            d_loss_fake = loss_fn(fake_labels, fake_logits)
+            d_loss = 0.5 * (d_loss_real + d_loss_fake)
+        d_grads = d_tape.gradient(d_loss, discriminator.trainable_variables)
+        d_optimizer.apply_gradients(zip(d_grads, discriminator.trainable_variables))
 
         # --- Huấn luyện Generator ---
-        noise = np.random.normal(0, 1, (batch_size, latent_dim))
-        g_loss = gan.train_on_batch(noise, real_labels)
+        noise = tf.random.normal((batch_size, latent_dim))
+        with tf.GradientTape() as g_tape:
+            generated = generator(noise, training=True)
+            generated_logits = discriminator(generated, training=False)
+            g_loss = loss_fn(real_labels, generated_logits)
+        g_grads = g_tape.gradient(g_loss, generator.trainable_variables)
+        g_optimizer.apply_gradients(zip(g_grads, generator.trainable_variables))
 
         if epoch % sample_interval == 0:
-            print(f"Epoch {epoch}/{epochs}  |  D loss: {d_loss:.4f}  |  G loss: {g_loss:.4f}")
+            print(
+                f"Epoch {epoch}/{epochs}  |  "
+                f"D loss: {float(d_loss):.4f}  |  G loss: {float(g_loss):.4f}"
+            )
 
     return generator, discriminator
 

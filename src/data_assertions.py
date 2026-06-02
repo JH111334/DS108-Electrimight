@@ -15,6 +15,8 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from src.schema import ACTIVE_POWER_COL, LAGGING_PF_COL, LAGGING_REACTIVE_COL, LEADING_PF_COL
+
 
 class DataAssertionError(AssertionError):
     """Ngoại lệ riêng cho vi phạm assertions dữ liệu."""
@@ -68,7 +70,7 @@ def assert_pf_in_range(
         DataAssertionError: Nếu PF ngoài bounds.
     """
     if cols is None:
-        cols = ["Lagging_Current_Power_Factor", "Leading_Current_Power_Factor"]
+        cols = [LAGGING_PF_COL, LEADING_PF_COL]
 
     for col in cols:
         if col not in df.columns:
@@ -99,9 +101,12 @@ def assert_physical_consistency(
     Raises:
         DataAssertionError: Nếu tồn tại sai lệch vượt tolerance.
     """
-    p_col = "Usage_kWh"
-    q_col = "Lagging_Current_Reactive.Power_kVarh"
+    p_col = ACTIVE_POWER_COL
+    q_col = LAGGING_REACTIVE_COL
     s_col = "Apparent_Power_S"
+
+    if p_col not in df.columns or q_col not in df.columns:
+        return
 
     if s_col not in df.columns:
         # Tính S tạm thời nếu chưa có
@@ -119,6 +124,20 @@ def assert_physical_consistency(
             raise DataAssertionError(msg)
         else:
             print(msg)
+
+    if {"Reactive_Power_Q_Net", "Apparent_Power_S_Net"}.issubset(df.columns):
+        s_net = np.sqrt(df[p_col] ** 2 + df["Reactive_Power_Q_Net"] ** 2)
+        net_diff = np.abs(df["Apparent_Power_S_Net"] - s_net)
+        n_net_viol = int((net_diff > tolerance).sum())
+        if n_net_viol > 0:
+            msg = (
+                f"[ASSERT FAIL] {n_net_viol} điểm vi phạm "
+                f"S_net² = P² + Q_net² (tol={tolerance})."
+            )
+            if strict:
+                raise DataAssertionError(msg)
+            else:
+                print(msg)
 
 
 # ── Temporal Constraints ────────────────────────────────────────────
@@ -353,6 +372,11 @@ def assert_correlation_preserved(
 
 # ── Orchestrator: Run All Assertions ────────────────────────────────
 
+def _allowed_engineered_edge_nulls(df: pd.DataFrame) -> List[str]:
+    """Return engineered columns where initial edge NaNs are expected."""
+    patterns = ("_lag_", "_rstd_", "_rskew_", "_cA_", "_cD")
+    return [col for col in df.columns if any(pattern in col for pattern in patterns)]
+
 def run_pipeline_assertions(
     df: pd.DataFrame,
     stage: str = "post_cleaning",
@@ -382,11 +406,17 @@ def run_pipeline_assertions(
     results: dict = {}
 
     # Các assertions chung cho mọi giai đoạn
+    null_exclusions = (
+        _allowed_engineered_edge_nulls(df)
+        if stage in ("post_time_features", "post_wavelet", "post_physical", "post_labeling", "post_gan")
+        else []
+    )
+
     checks = [
         ("temporal_sorted", lambda: assert_temporal_sorted(df, strict=strict)),
         ("no_duplicate_timestamps", lambda: assert_no_duplicate_timestamps(df, strict=strict)),
         ("nsm_consistency", lambda: assert_nsm_consistency(df, strict=strict)),
-        ("no_nulls", lambda: assert_no_nulls(df, strict=strict)),
+        ("no_nulls", lambda: assert_no_nulls(df, exclude_cols=null_exclusions, strict=strict)),
     ]
 
     if stage in ("post_cleaning", "post_time_features", "post_wavelet",

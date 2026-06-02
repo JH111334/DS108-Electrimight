@@ -1,0 +1,49 @@
+{
+  "input_path": "data\\gold\\steel_final.csv",
+  "synthetic_path": "data\\gold\\steel_synthetic_gan.csv",
+  "n_rows": 35040,
+  "n_columns": 69,
+  "forecast_best_by_rmse": [
+    {
+      "task": "forecast_usage_t_plus_1h",
+      "track": "full",
+      "config": "A1_time",
+      "n_train": 28028,
+      "n_test": 7008,
+      "n_features": 24,
+      "mae": 6.197559863982352,
+      "rmse": 12.008684274779403,
+      "r2": 0.8534761380800374,
+      "train_positive_rate": NaN,
+      "test_positive_rate": NaN,
+      "pr_auc": NaN,
+      "f1": NaN,
+      "precision": NaN,
+      "recall": NaN,
+      "balanced_accuracy": NaN,
+      "roc_auc": NaN,
+      "fold": NaN
+    }
+  ],
+  "proxy_best_by_pr_auc": [
+    {
+      "track": "full",
+      "config": "A2_time_weather",
+      "n_train": 17520.0,
+      "n_test": 5840.0,
+      "n_features": 35.0,
+      "mae": NaN,
+      "rmse": NaN,
+      "r2": NaN,
+      "train_positive_rate": 0.18453025114155253,
+      "test_positive_rate": 0.001232876712328767,
+      "pr_auc": 0.36419472850542833,
+      "f1": 0.4232418057480027,
+      "precision": 0.5290969696969697,
+      "recall": 0.7214285714285714,
+      "balanced_accuracy": 0.833678410970899,
+      "roc_auc": 0.9048522902667582,
+      "fold": 3.0
+    }
+  ]
+}
