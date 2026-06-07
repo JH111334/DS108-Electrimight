@@ -210,3 +210,12 @@ __marimo__/
 data/processed/
 artifacts/
 fix_anomaly.py
+
+# Local-only project notes and presentation/support tooling
+docs/
+tools/
+skills/ieee-docx-format/
+AGENTS.md
+MODV1.md
+SPELLING_CHECKLIST.md
+*.pptx
