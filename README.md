@@ -147,6 +147,18 @@ python -m src.silver.weather
 
 ---
 
+## Dashboard Streamlit
+
+Xem kết quả pipeline qua giao diện trực quan:
+
+```bash
+docker compose up streamlit
+```
+
+Mở `http://localhost:8505`. Xem thêm tại [`streamlit_ui/README.md`](streamlit_ui/README.md).
+
+---
+
 ## Các Thư Viện Chính
 
 | Thư Viện | Mục Đích |
