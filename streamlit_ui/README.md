@@ -46,12 +46,30 @@ Layout mới cần có:
 
 Docker phục vụ reproducibility, không thay thế link demo public.
 
+### docker run
+
 ```powershell
 docker build -t ds108-electrimight .
 docker run --rm -p 8501:8501 ds108-electrimight
 ```
 
 Sau đó mở `http://localhost:8501`.
+
+### docker compose
+
+```powershell
+docker compose up streamlit
+```
+
+Sau đó mở `http://localhost:8505`.
+
+Dùng profile `full` để chạy cả Jupyter Lab:
+
+```powershell
+docker compose --profile full up
+```
+
+Jupyter Lab sẽ có sẵn tại `http://localhost:8888` (không cần token).
 
 ## Chạy toàn bộ pipeline
 

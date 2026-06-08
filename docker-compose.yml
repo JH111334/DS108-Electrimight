@@ -1,0 +1,27 @@
+services:
+  streamlit:
+    build: .
+    image: ds108-electrimight:latest
+    container_name: ds108-streamlit
+    ports:
+      - "8505:8501"
+    volumes:
+      - ./data:/app/data
+      - ./metadata:/app/metadata
+      - ./references:/app/references
+    command: streamlit
+    restart: unless-stopped
+
+  jupyter:
+    build: .
+    image: ds108-electrimight:latest
+    container_name: ds108-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./metadata:/app/metadata
+      - ./notebooks:/app/notebooks
+    command: jupyter
+    profiles:
+      - full

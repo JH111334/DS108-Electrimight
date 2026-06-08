@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY . .
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8501
 
-CMD ["streamlit", "run", "streamlit_ui/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["streamlit"]
