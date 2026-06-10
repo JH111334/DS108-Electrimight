@@ -210,6 +210,9 @@ __marimo__/
 data/processed/
 artifacts/
 fix_anomaly.py
+data_publish/
+*.zip
+*.7z
 
 # Local-only project notes and presentation/support tooling
 docs/

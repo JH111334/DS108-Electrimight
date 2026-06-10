@@ -1,166 +1,186 @@
-# DS108-Electritight
+# DS108-Electrimight
 
-Dự án tiền xử lý và mô hình hóa dữ liệu tiêu thụ điện năng ngành thép (Steel Industry Energy Consumption) sử dụng biến đổi Wavelet và tăng cường dữ liệu GAN, đồng thở tích hợp dữ liệu thở tiết ngoại sinh (exogenous variables) và phát hiện bất thường dựa trên chuẩn ngành.
+DS108-Electrimight is a reproducible data-preprocessing project for industrial
+electricity consumption analytics. The project starts from the public UCI Steel
+Industry Energy Consumption dataset, integrates exogenous weather observations,
+engineers time-domain, frequency-domain, and physics-informed features, and
+produces an auditable gold dataset for forecasting and proxy anomaly analysis.
 
----
+The repository is intended to be read by instructors as a complete project
+artifact: code, notebooks, metadata, validation summaries, figures, Streamlit
+dashboard, and Docker deployment are kept together with clear provenance.
 
-## Giới Thiệu
+## Project Summary
 
-**DS108-Electritight** là dự án học máy tập trung vào bộ dữ liệu `Steel_industry_data.csv` — ghi lại mức tiêu thụ điện năng theo thở gian thực của một nhà máy thép Hàn Quốc. Mục tiêu của dự án bao gồm:
+The final dataset `data/gold/steel_final.csv` contains **35,040 observations**
+and **69 columns** at 15-minute resolution for the year 2018. Each observation
+combines electrical measurements, weather context, engineered temporal features,
+discrete wavelet transform features, power-triangle features, and rule-based
+proxy anomaly labels.
 
-- **EDA & Baseline**: Phân tích khám phá dữ liệu và xây dựng mô hình nền.
-- **Data Quality Audit**: Kiểm tra sâu (deep audit) để phát hiện các vấn đề ẩn trong dữ liệu thô.
-- **Feature Engineering**: Trích xuất đặc trưng toán học nâng cao bằng biến đổi Wavelet (PyWavelets), đặc trưng miền thở gian, đặc trưng vật lý (S, φ).
-- **Weather Integration**: Thu thập dữ liệu thở tiết từ Open-Meteo API, resample và tích hợp vào bộ dữ liệu gốc.
-- **Anomaly Detection**: Gán nhãn bất thường (Idling, Leakage, Overload) dựa trên chuẩn ngành IEEE 519 / ISO 50001 với Confidence Score và giải thích.
-- **GAN Augmentation**: Tăng cường tập dữ liệu bằng mô hình sinh (Generative Adversarial Network) với TensorFlow/Keras.
+Main outputs:
 
----
+- **Gold dataset:** `data/gold/steel_final.csv`
+- **Synthetic minority-class sample:** `data/gold/steel_synthetic_gan.csv`
+- **Dataset metadata:** `metadata/dataset/`
+- **Pipeline and experiment summaries:** `metadata/pipeline/`
+- **Presentation dashboard:** `streamlit_ui/app.py`
+- **IEEE report source:** `references/report-guides/`
 
-## Cấu Trúc Kho
+## Repository Structure
 
-```
-DS108-Electritight/
-|
-├── data/
-│   ├── bronze/                     # [CHỈ ĐỌC] Tệp gốc + DATA_PROVENANCE.md
-│   │   ├── Steel_industry_data.csv
-│   │   ├── weather_gwangyang_2018.csv
-│   │   └── DATA_PROVENANCE.md      # Log thu thập & audit dữ liệu thô
-│   ├── silver/                     # Dữ liệu sạch/intermediate
-│       ├── steel_clean.csv
-│   └── gold/                       # Dữ liệu thành phẩm
-│       └── steel_final.csv
-│
-├── notebooks/
-│   ├── 01_data_profiling_and_eda.ipynb
-│   ├── 01_eda_and_baseline.ipynb
-│   ├── 02_feature_engineering_math.ipynb
-│   └── 03_gan_augmentation.ipynb
-│
-├── src/
-│   ├── __init__.py
-│   ├── data_loader.py              # Tải, kiểm tra và làm sạch dữ liệu thô
-│   ├── data_quality_audit.py       # Audit 5 nhóm vấn đề chất lượng dữ liệu
-│   ├── time_features.py            # Đặc trưng miền thở gian (lag, rolling, trig)
-│   ├── wavelet_features.py         # Trích xuất đặc trưng Wavelet (DWT)
-│   ├── physical_features.py        # Đặc trưng vật lý (S, φ)
-│   ├── weather.py                  # Thu thập dữ liệu thở tiết từ API (retry, batching)
-│   ├── weather_loader.py           # Load, resample, feature engineering, merge weather
-│   ├── anomaly_labels.py           # Gán nhãn bất thường với Confidence Score
-│   ├── gan_augmentation.py         # Định nghĩa và huấn luyện mô hình GAN
-│   ├── misc.py                     # Tham chiếu TensorFlow GAN (archive)
-│   ├── pipeline.py                 # Pipeline đầu-cuối tích hợp tất cả bước
-│   └── utils.py                    # Tiện ích dùng chung (logging, I/O, constants)
-│
-├── metadata/
-│   ├── dataset/                    # Codebook, datasheet, labeling guideline
-│   └── pipeline/                   # Stats, ablation, verification, insights
-│
-├── tests/
-│   └── __init__.py
-│
-├── MODV1.md                        # Tài liệu tích hợp dữ liệu thở tiết
-├── requirements.txt                # Phiên bản thư viện được cố định
-└── README.md                       # Tài liệu này
+```text
+DS108-Electrimight/
+|-- data/
+|   |-- bronze/              # Source data and provenance; treated as read-only
+|   |-- silver/              # Cleaned intermediate data
+|   `-- gold/                # Final analytical datasets
+|-- metadata/
+|   |-- dataset/             # Datasheet, codebook, feature catalog, label notes
+|   `-- pipeline/            # Metrics, ablation results, validation summaries
+|-- notebooks/               # Reproducible exploratory and modeling notebooks
+|-- references/
+|   |-- documents/           # Report guidelines and source references
+|   `-- report-guides/       # LaTeX report source and generated figures
+|-- src/
+|   |-- bronze/              # Raw loading, quality audit, weather loading
+|   |-- silver/              # Feature engineering and proxy labels
+|   `-- gold/                # End-to-end pipeline, figures, GAN, ablation
+|-- streamlit_ui/            # Streamlit dashboard for project demonstration
+|-- tests/                   # Pytest coverage for schema, labels, assertions
+`-- Dockerfile               # Containerized Streamlit app
 ```
 
-> **Quy tắc bất biến**: Thư mục `data/bronze/` là **CHỈ ĐỌC**. Không có kịch bản hay notebook nào được phép ghi đè lên thư mục này. Mọi dữ liệu thành phẩm được lưu vào `data/gold/`, metadata được lưu vào `metadata/`.
+## Dataset Lineage
 
----
+The project follows a Bronze-Silver-Gold data layout:
 
-## Mục Tiêu Tiền Xử Lý
+| Layer | Path | Role |
+|---|---|---|
+| Bronze | `data/bronze/` | Original UCI steel data and downloaded weather data. This layer is preserved as source evidence. |
+| Silver | `data/silver/steel_clean.csv` | Cleaned electrical data after timestamp parsing, power-factor normalization, and data-quality checks. |
+| Gold | `data/gold/steel_final.csv` | Final analytical dataset after weather merge, feature engineering, proxy anomaly labeling, and validation. |
 
-| Bước | Mô Tả |
-|------|-------|
-| 1. Tải dữ liệu | Đọc `Steel_industry_data.csv`, kiểm tra kiểu dữ liệu, audit chất lượng |
-| 2. Làm sạch | Loại trùng lặp, nội suy, scale PF từ % về hệ số, xác thực vật lý |
-| 3. Weather Integration | Fetch API, resample 1h -> 15min, engineer 7 features, merge |
-| 4. Time Features | Lag, rolling stats, trigonometric encoding |
-| 5. Wavelet Features | DWT (Discrete Wavelet Transform) Daubechies-4 |
-| 6. Physical Features | Công suất biểu kiến S, góc lệch pha φ |
-| 7. Anomaly Detection | Idling (IEEE 519), Leakage (ISO 50001), Overload (Tukey/IEEE) |
-| 8. GAN Augmentation | Sinh dữ liệu tổng hợp cân bằng lớp (tùy chọn) |
-| 9. Lưu kết quả | Xuất tệp `.csv` vào `data/processed/` |
+Raw CSV dates are parsed with `dayfirst=True` because the original steel dataset
+uses `DD/MM/YYYY` date format.
 
----
+## Methodology
 
-## Hướng Dẫn Tái Lập Môi Trường
+The pipeline implements five major preprocessing and feature-engineering stages:
 
-### Yêu cầu
-- Python 3.9+
-- pip hoặc conda
+1. **Data quality audit:** checks timestamp continuity, duplicate records,
+   power-factor range, invalid physical values, and low-resolution variables.
+2. **Weather integration:** downloads historical weather for Gwangyang,
+   resamples hourly weather to 15-minute intervals, and left-joins it with the
+   steel consumption records.
+3. **Time-domain features:** creates lag features, rolling statistics, and
+   cyclic encodings for intraday behavior.
+4. **Frequency-domain features:** applies rolling DWT with Daubechies-4 wavelet
+   decomposition to capture load transients that are not visible in smoothed
+   time-domain features.
+5. **Physics-informed features and labels:** derives apparent power, reactive
+   power summaries, phase-angle features, and rule-based proxy anomaly labels
+   for idling, leakage/concept drift, and local overload.
 
-### Cài đặt
+The anomaly labels are explicitly documented as **proxy labels**. They are useful
+for benchmark and methodological evaluation, but they are not SCADA-confirmed
+fault labels.
 
-```bash
-# 1. Clone kho
-git clone https://github.com/JH111334/DS108-Electritight.git
-cd DS108-Electritight
+## Current Evidence
 
-# 2. Tạo môi trường ảo
-python -m venv venv
-source venv/bin/activate        # Linux/macOS
-# hoặc: venv\Scripts\activate   # Windows
+Current generated artifacts report:
 
-# 3. Cài đặt thư viện
+| Evidence | Value |
+|---|---:|
+| Gold dataset shape | 35,040 rows x 69 columns |
+| Any proxy anomaly | 2,388 rows |
+| Any proxy anomaly rate | 6.815% |
+| Best forecasting configuration | RAW + TIME |
+| Best forecasting RMSE | 12.0087 |
+| Best proxy anomaly PR-AUC configuration | RAW + TIME + WEATHER |
+| Best proxy anomaly PR-AUC | 0.3642 |
+| GAN mean error | 8.20% |
+| GAN std error | 3.81% |
+| GAN correlation MAE | 0.116 |
+| Validation summary | 52 pytest tests passed |
+
+These values are generated from `metadata/pipeline/*.json` and
+`metadata/pipeline/ablation_results.csv`.
+
+## Reproducibility
+
+Recommended environment:
+
+- Python 3.12
+- Windows PowerShell or a compatible shell
+- Dependencies in `requirements.txt`
+
+Install dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -r streamlit_ui/requirements.txt
 ```
 
-### Đặt dữ liệu
-Tải `Steel_industry_data.csv` và đặt vào:
-```
-data/bronze/Steel_industry_data.csv
-```
-> Tệp này có thể tải từ [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/851/steel+industry+energy+consumption).
+Run the main pipeline:
 
----
-
-## Quy Trình Chạy Pipeline
-
-### Chạy notebook theo thứ tự
-
-```bash
-jupyter notebook
-```
-
-Mở và chạy tuần tự:
-1. `notebooks/01_eda_and_baseline.ipynb`
-2. `notebooks/02_feature_engineering_math.ipynb`
-3. `notebooks/03_gan_augmentation.ipynb`
-
-### Chạy pipeline bằng script Python
-
-```bash
-# Pipeline đầy đủ + metadata/insights
+```powershell
 python -m src.run_all
+```
 
-# Chỉ chạy pipeline tạo gold dataset
+Run targeted checks:
+
+```powershell
+python -m pytest
 python -m src.gold.pipeline
+python -m src.data_assertions
+python -m src.leakage_audit
+python -m src.missingness_analysis
+```
 
-# Audit dữ liệu thô
-python -m src.bronze.data_quality_audit
+Only fetch live weather data when the weather source must be regenerated:
 
-# Thu thập dữ liệu thở tiết (nếu cần fetch lại)
+```powershell
 python -m src.silver.weather
 ```
 
----
+## Streamlit Demo
 
-## Các Thư Viện Chính
+Run locally:
 
-| Thư Viện | Mục Đích |
-|----------|----------|
-| `pandas` | Xử lý và biến đổi dữ liệu dạng bảng |
-| `numpy` | Tính toán số học mảng |
-| `scikit-learn` | Tiền xử lý, đánh giá mô hình baseline |
-| `PyWavelets` | Biến đổi Wavelet rời rạc (DWT) |
-| `tensorflow` | Xây dựng và huấn luyện mô hình GAN |
-| `matplotlib` / `seaborn` | Trực quan hóa dữ liệu |
-| `requests` | Gọi API thở tiết Open-Meteo |
+```powershell
+streamlit run streamlit_ui/app.py
+```
 
----
+Or run through Docker:
 
-## Thành Viên Nhóm
+```powershell
+docker build -t ds108-electrimight .
+docker run --rm -p 8501:8501 ds108-electrimight
+```
 
-Dự án DS108 — Môn Khoa Học Dữ Liệu
+Then open `http://localhost:8501`.
+
+The Streamlit and Docker commands above provide the reproducible app entry
+points for local review and deployment preparation.
+
+## Large Dataset Policy
+
+The current tracked CSV files are still within normal GitHub file limits.
+However, future generated datasets or model artifacts should not be committed
+directly if they approach large-file thresholds. The professional workflow is:
+
+- keep code, metadata, notebooks, and small sample files in GitHub;
+- publish full datasets on Kaggle or Zenodo when they are intended for sharing;
+- use DVC or Git LFS only when versioned large artifacts must remain attached to
+  the repository workflow;
+- document every external dataset URL in `metadata/dataset/DATASHEET.md`.
+
+## License
+
+Source code is distributed under the repository license. The original steel
+dataset remains governed by its upstream UCI dataset terms. Derived metadata,
+feature definitions, and project documentation are provided for academic review
+and reproducibility.

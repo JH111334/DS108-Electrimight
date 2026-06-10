@@ -1,22 +1,24 @@
-# data/raw — CHỈ ĐỌC (Read-Only)
+# Bronze Data Layer
 
-Thư mục này lưu trữ **duy nhất** tệp dữ liệu gốc:
+`data/bronze/` stores source data and provenance records. This layer is treated
+as read-only during routine pipeline work so that every downstream dataset can be
+traced back to its original source.
 
-```
-data/raw/Steel_industry_data.csv
-```
+## Files
 
-## ⚠️ Quy Tắc Bất Biến
+| File | Description |
+|---|---|
+| `Steel_industry_data.csv` | Original UCI Steel Industry Energy Consumption data |
+| `weather_gwangyang_2018.csv` | Historical weather data for Gwangyang, South Korea |
+| `DATA_PROVENANCE.md` | Source, collection, and quality-audit notes |
 
-> **TUYỆT ĐỐI KHÔNG** ghi, chỉnh sửa, hoặc xóa bất kỳ tệp nào trong thư mục này.
+## Data Contract
 
-- Không có kịch bản (script), notebook, hay pipeline nào được phép **ghi đè** lên thư mục `data/raw/`.
-- Mọi dữ liệu đã qua xử lý phải được lưu vào `data/processed/`.
-- Quy tắc này đảm bảo **khả năng truy xuất nguồn gốc dữ liệu** (data provenance) và cho phép tái lập toàn bộ pipeline từ đầu bất kỳ lúc nào.
+- Do not overwrite source files in this folder during preprocessing.
+- Write cleaned data to `data/silver/`.
+- Write final analytical outputs to `data/gold/`.
+- Parse steel CSV dates with `dayfirst=True` because the source file uses
+  `DD/MM/YYYY`.
 
-## Nguồn Dữ Liệu
-
-`Steel_industry_data.csv` được lấy từ:
-> [UCI Machine Learning Repository — Steel Industry Energy Consumption Dataset](https://archive.ics.uci.edu/dataset/851/steel+industry+energy+consumption)
-
-Tải tệp và đặt vào thư mục này trước khi chạy pipeline.
+This separation preserves provenance and makes the Bronze-Silver-Gold pipeline
+reproducible for review.
