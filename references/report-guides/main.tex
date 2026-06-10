@@ -1,13 +1,5 @@
 % =============================================================================
-% IEEEtran Template for DS108 Electrimight Report
-% =============================================================================
-% CHANGELOG:
-% - Added Vietnamese language support (inputenc, fontenc, babel)
-% - Fixed factual inconsistency: 7 -> 11 original features in Abstract
-% - Translated section headers and structural text to Vietnamese
-% - Expanded Physical-Domain Feature Engineering with full Vietnamese content
-% - Fixed spelling: thời -> thời, từ trình -> từ trường
-% - Ensured sentence capitalization in Vietnamese paragraphs
+% IEEEtran source for the DS108 Electrimight report
 % =============================================================================
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
@@ -16,7 +8,6 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
 \usepackage[vietnamese]{babel}
-% Keep IEEE English labels for tables/figures (optional; remove if you want Vietnamese labels)
 \addto\captionsvietnamese{%
   \def\tablename{TABLE}%
   \def\figurename{Fig.}%
@@ -25,6 +16,7 @@
 % ---------- Packages ----------
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
@@ -43,8 +35,7 @@
 \begin{document}
 
 % ---------- Title ----------
-\title{Kỹ thuật Trích chọn Đặc trưng Wavelet và Tăng cường GAN \\
-cho Xây dựng Tập dữ liệu Tiêu thụ Điện năng Ngành thép}
+\title{Xây dựng Dataset Giàu Đặc trưng cho Phân tích Tiêu thụ Điện Công nghiệp Ngành Thép}
 
 % ---------- Authors ----------
 \author{
@@ -52,18 +43,17 @@ cho Xây dựng Tập dữ liệu Tiêu thụ Điện năng Ngành thép}
     Nguyễn Sỹ Huỳnh\textsuperscript{1}}
     \IEEEauthorblockA{\textsuperscript{1}\textit{Trường Đại học Công nghệ Thông tin},
     ĐHQG Thành phố Hồ Chí Minh, Việt Nam}
-    \IEEEauthorblockA{Email: [email tác giả 1], [email tác giả 2]}
 }
 
 \maketitle
 
 % ---------- Abstract ----------
 \begin{abstract}
-Dự báo tiêu thụ điện năng công nghiệp và phân loại rủi ro đòi hỏi các tập dữ liệu chất lượng cao với đặc trưng phong phú. Bài báo này trình bày một pipeline tiền xử lý toàn diện cho tập dữ liệu Tiêu thụ Điện năng Ngành thép, một tập dữ liệu chuỗi thời gian thực tế thu thập từ một nhà máy thép Hàn Quốc. Chúng tôi đề xuất một framework kỹ thuật đặc trưng đa miền bao gồm thống kê miền thời gian (đặc trưng trễ và trượt), đặc trưng miền tần số qua Biến đổi Wavelet rời rạc (DWT) với wavelet Daubechies-4, và các đạo hàm miền vật lý bao gồm Công suất biểu kiến và Góc lệch pha. Hơn nữa, các nhãn bất thường cho hiện tượng chạy không tải, rò rỉ năng lượng, và quá tải cục bộ được tạo ra bằng ngưỡng vật lý dựa trên quy tắc. Để giải quyết mất cân bằng lớp, một Mạng đối kháng Sinh (GAN) được sử dụng để tăng cường dữ liệu lớp thiểu số. Tập dữ liệu đã xử lý mở rộng từ 11 đặc trưng gốc lên 64 đặc trưng kỹ thuật với ba chỉ báo bất thường nhị phân. Thử nghiệm xác nhận rằng các đặc trưng wavelet và vật lý trích xuất có hiệu quả trong việc nắm bắt các hành vi tải không dừng và các dấu hiệu lỗi tiềm ẩn, cung cấp một nền tảng vững chắc cho các mô hình dự báo và phát hiện bất thường phía sau.
+Dự báo tiêu thụ điện năng công nghiệp và phân loại rủi ro đòi hỏi dataset có chất lượng cao, schema rõ ràng và đặc trưng đủ giàu để hỗ trợ kiểm toán. Bài báo này trình bày một pipeline tiền xử lý cho tập dữ liệu Steel Industry Energy Consumption, một chuỗi thời gian công nghiệp được ghi nhận tại nhà máy thép Hàn Quốc. Pipeline kết hợp feature engineering miền thời gian, đặc trưng miền tần số bằng Discrete Wavelet Transform (DWT) với wavelet Daubechies-4, weather enrichment từ Open-Meteo và các đặc trưng physics-informed như apparent power và phase angle. Ba nhóm proxy anomaly labels cho idle load, energy leakage và local overload được xây dựng bằng ngưỡng vật lý có giải thích, đồng thời một module GAN dạng bảng được khảo sát như hướng tăng cường dữ liệu cho lớp thiểu số. Gold dataset sau xử lý gồm 35.040 bản ghi và 69 cột, mở rộng từ 11 cột gốc bằng các lớp đặc trưng thời gian, thời tiết, wavelet, vật lý, nhãn và confidence score. Kết quả ablation cho thấy đóng góp chính của nghiên cứu nằm ở việc xây dựng một benchmark dữ liệu có thể tái lập, minh bạch về giới hạn nhãn yếu và phù hợp cho các bài toán forecasting, proxy-risk classification và kiểm toán dữ liệu trước mô hình.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Tiêu thụ điện năng, tiền xử lý dữ liệu, biến đổi wavelet rời rạc, kỹ thuật đặc trưng, mạng đối kháng sinh, phát hiện bất thường, ngành thép.
+industrial electricity consumption, data preprocessing, DWT, proxy anomaly labels, steel industry.
 \end{IEEEkeywords}
 
 % =============================================================================

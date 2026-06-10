@@ -1,127 +1,126 @@
 # Datasheet for DS108-Electrimight
 
-This datasheet documents the dataset produced by the DS108-Electrimight
-preprocessing pipeline. It follows the intent of the "Datasheets for Datasets"
-framework while using report-style wording suitable for academic review.
+Tài liệu này mô tả dataset được tạo bởi pipeline DS108-Electrimight. Cấu trúc
+giữ theo khung "Datasheets for Datasets" để người đọc dễ đối chiếu, nhưng phần
+diễn giải được viết bằng tiếng Việt có dấu, giữ nguyên các thuật ngữ chuyên
+ngành như `forecasting`, `proxy labels`, `feature engineering`, `DWT`, `GAN`,
+`SCADA` và `data leakage` khi chúng rõ nghĩa hơn.
 
 ## 1. Motivation
 
-DS108-Electrimight was created to support research and coursework on industrial
-electricity-consumption preprocessing. The dataset is designed for two related
-tasks:
+DS108-Electrimight được xây dựng để phục vụ nghiên cứu và đồ án về tiền xử lý dữ
+liệu tiêu thụ điện công nghiệp. Dataset hướng đến hai nhóm tác vụ chính:
 
-- short-term electricity consumption forecasting;
-- offline proxy anomaly analysis for energy-waste, leakage/concept drift, and
-  overload-risk patterns.
+- `short-term load forecasting` cho tiêu thụ điện công nghiệp;
+- phân tích `proxy anomaly` dạng offline cho các tín hiệu nghi ngờ lãng phí năng
+  lượng, leakage/concept drift và overload risk.
 
-The project extends the original UCI Steel Industry Energy Consumption dataset
-with exogenous weather data, time-domain features, DWT wavelet features, and
-physics-informed electrical features. The final product is a methodological
-benchmark, not a commercial plant-monitoring product.
+Project mở rộng UCI Steel Industry Energy Consumption dataset bằng dữ liệu thời
+tiết ngoại sinh, đặc trưng `time-domain`, đặc trưng `DWT`, đặc trưng vật lý điện
+và các nhãn yếu có thể giải thích. Vì vậy, dataset nên được hiểu là một
+benchmark phương pháp luận cho tiền xử lý và xây dựng dữ liệu, không phải hệ
+thống giám sát vận hành thương mại.
 
-The dataset was prepared by the DS108 student research group at the University
-of Information Technology, Vietnam National University Ho Chi Minh City. No
-external funding was used.
+Dataset được chuẩn bị bởi nhóm sinh viên DS108, Trường Đại học Công nghệ Thông
+tin, ĐHQG-HCM. Project không sử dụng nguồn tài trợ bên ngoài.
 
 ## 2. Dataset Composition
 
-Each row represents one 15-minute observation from the POSCO Gwangyang steel
-plant in South Korea during 2018. The final gold dataset has:
+Mỗi dòng biểu diễn một mốc đo 15 phút tại nhà máy thép POSCO Gwangyang, Hàn
+Quốc trong năm 2018. Dataset gold hiện tại có:
 
-- **35,040 rows**, covering 365 days at 15-minute frequency;
-- **69 columns**, combining source measurements, weather context, engineered
-  features, and proxy anomaly labels;
-- a continuous timestamp range from **2018-01-01 00:00** to
+- **35.040 dòng**, tương ứng một năm đầy đủ ở tần suất 15 phút;
+- **69 cột**, gồm tín hiệu gốc, ngữ cảnh thời tiết, đặc trưng kỹ thuật và
+  `proxy anomaly labels`;
+- khoảng thời gian liên tục từ **2018-01-01 00:00** đến
   **2018-12-31 23:45**.
 
-The final dataset contains the following groups of variables:
+Các nhóm biến chính:
 
 | Group | Count | Description |
 |---|---:|---|
-| Raw electrical and calendar variables | 11 | UCI steel measurements and original time/category fields |
-| Weather variables | 4 | Open-Meteo historical weather for Gwangyang |
-| Weather-derived variables | 7 | rolling temperature, weather deltas, heat index, interaction features |
-| Time-domain variables | 15 | lag, rolling, and cyclic time features |
-| DWT wavelet variables | 16 | frequency-domain summaries from rolling Daubechies-4 decomposition |
-| Physics-informed variables | 7 | apparent power, reactive-power summaries, phase-angle features |
-| Proxy anomaly variables | 9 | boolean labels, confidence scores, and explanation text |
+| Raw electrical and calendar variables | 11 | Biến điện và ngữ cảnh lịch từ UCI dataset |
+| Weather variables | 4 | Dữ liệu Open-Meteo cho khu vực Gwangyang |
+| Weather-derived variables | 7 | Đặc trưng phái sinh từ thời tiết |
+| Time-domain variables | 15 | Lag, rolling statistics và cyclic encoding |
+| DWT wavelet variables | 16 | Đặc trưng miền tần số từ rolling Daubechies-4 |
+| Physics-informed variables | 7 | Công suất biểu kiến, reactive power và phase angle |
+| Proxy anomaly variables | 9 | Nhãn, confidence score và explanation text |
 
-The full column-level description is maintained in
-`metadata/dataset/CODEBOOK.csv` and
+Mô tả cấp cột nằm trong `metadata/dataset/CODEBOOK.csv` và
 `metadata/dataset/DS108_Gold_Feature_Catalog.md`.
 
 ## 3. Source Data
 
 ### Steel Industry Energy Consumption
 
-The electrical source data comes from the UCI Machine Learning Repository:
+Nguồn dữ liệu điện đến từ UCI Machine Learning Repository:
 
 - Dataset: Steel Industry Energy Consumption
 - URL: https://archive.ics.uci.edu/dataset/851/steel+industry+energy+consumption
-- Original authors: Sathishkumar V. E., Jangwoo Park, and Yongyun Cho
+- Original authors: Sathishkumar V. E., Jangwoo Park và Yongyun Cho
 - Location: POSCO Gwangyang steel plant, South Korea
-- Time range: 01/01/2018 to 31/12/2018
-- Frequency: 15 minutes
+- Time range: 01/01/2018 đến 31/12/2018
+- Frequency: 15 phút
 
-The original date format is `DD/MM/YYYY`; the project parses it with
+File gốc dùng định dạng ngày `DD/MM/YYYY`, vì vậy pipeline đọc ngày với
 `dayfirst=True`.
 
 ### Weather Data
 
-Weather variables were collected from the Open-Meteo Historical Weather API for
-Gwangyang coordinates:
+Dữ liệu thời tiết được thu từ Open-Meteo Historical Weather API tại tọa độ
+Gwangyang:
 
 - Latitude: 34.975 N
 - Longitude: 127.589 E
-- Frequency before merging: hourly
-- Variables: temperature, precipitation, relative humidity, and wind speed
+- Frequency trước khi merge: hourly
+- Variables: temperature, precipitation, relative humidity và wind speed
 
-Weather data is exogenous. The pipeline resamples hourly observations to
-15-minute intervals before merging them with the steel data.
+Weather được xem là biến ngoại sinh. Pipeline resample dữ liệu hourly về 15 phút
+trước khi merge với chuỗi tiêu thụ điện.
 
 ## 4. Preprocessing and Feature Engineering
 
-The data pipeline uses a Bronze-Silver-Gold structure:
+Pipeline dùng cấu trúc Bronze-Silver-Gold:
 
 | Layer | Path | Description |
 |---|---|---|
-| Bronze | `data/bronze/` | original steel CSV and downloaded weather CSV |
-| Silver | `data/silver/steel_clean.csv` | cleaned electrical data with normalized power factor |
-| Gold | `data/gold/steel_final.csv` | final dataset after weather merge, feature engineering, and labels |
+| Bronze | `data/bronze/` | CSV gốc và dữ liệu thời tiết đã tải |
+| Silver | `data/silver/steel_clean.csv` | Dữ liệu điện đã làm sạch và chuẩn hóa power factor |
+| Gold | `data/gold/steel_final.csv` | Dataset cuối sau weather merge, feature engineering và labeling |
 
-Main transformations:
+Các bước xử lý chính:
 
-- remove duplicate timestamps and validate timestamp continuity;
-- normalize power factor from percentage scale to `[0, 1]`;
-- preserve valid zero reactive-power values as physical signals rather than
-  treating them as missing data;
-- resample hourly weather to 15-minute frequency by linear interpolation;
-- create lag and rolling statistics from past observations only;
-- encode daily cyclic behavior with sine/cosine features;
-- compute DWT wavelet summaries over rolling 64-sample windows;
-- derive apparent power, net/total reactive power, and phase-angle features;
-- create proxy anomaly labels with confidence scores and explanations.
+- kiểm tra timestamp, duplicate và tính liên tục 15 phút;
+- chuẩn hóa power factor từ thang phần trăm về `[0, 1]`;
+- giữ các giá trị reactive power bằng 0 hợp lệ như tín hiệu vận hành;
+- resample weather hourly về 15 phút bằng linear interpolation;
+- tạo lag features và rolling statistics theo hướng causal;
+- mã hóa chu kỳ ngày bằng sine/cosine;
+- tính đặc trưng `DWT` trên rolling window 64 mẫu;
+- tạo đặc trưng vật lý như apparent power, net/total reactive power và phase
+  angle;
+- tạo `proxy anomaly labels` với confidence score và explanation.
 
-Algorithmic missing values are expected in early rows of lag and rolling-window
-features. These values are a consequence of causal feature construction and are
-documented rather than silently imputed.
+Các giá trị thiếu ở đầu chuỗi của lag/window features là hệ quả thuật toán hợp
+lý, không phải lỗi dữ liệu. Chúng được giữ minh bạch để tránh data leakage.
 
 ## 5. Labels and Intended Interpretation
 
-The dataset includes three proxy anomaly labels:
+Dataset có ba nhóm `proxy anomaly labels`:
 
 | Label | Interpretation | Evidence basis |
 |---|---|---|
-| `anomaly_idling` | off-hours light-load consumption with poor power factor | operating schedule, usage level, power factor |
-| `anomaly_leakage` | sustained consumption increase over baseline | rolling mean compared with early-period baseline |
-| `anomaly_overload` | extreme usage with reactive-power or power-factor stress | robust usage percentile and electrical stress indicators |
+| `anomaly_idling` | Tiêu thụ trong bối cảnh low-load/off-hours và power factor thấp | Operating schedule, usage level, power factor |
+| `anomaly_leakage` | Mức tiêu thụ tăng kéo dài so với baseline | Rolling mean so với baseline đầu kỳ |
+| `anomaly_overload` | Usage cực trị kèm reactive-power hoặc power-factor stress | Robust percentile và electrical stress indicators |
 
-The labels are **physics-informed weak/proxy labels**. They support offline
-benchmarking and explainable analysis but should not be presented as verified
-equipment faults. Real deployment would require maintenance logs, SCADA events,
-or expert electrical inspection.
+Các nhãn này là **physics-informed weak/proxy labels**. Chúng phù hợp để
+benchmark offline và phân tích có giải thích, nhưng không phải `ground truth`
+lỗi vận hành. Muốn triển khai thực tế cần đối chiếu thêm maintenance logs,
+SCADA events hoặc đánh giá của chuyên gia điện.
 
-Current generated counts:
+Phân bố nhãn hiện tại:
 
 | Metric | Value |
 |---|---:|
@@ -133,11 +132,11 @@ Current generated counts:
 
 ## 6. Quality and Validation
 
-The latest validation summary reports the following checks as passed:
+Validation summary hiện báo PASS cho các nhóm kiểm tra:
 
 - temporal ordering;
-- duplicate timestamp detection;
-- NSM timestamp consistency;
+- duplicate timestamps;
+- NSM consistency;
 - null checks;
 - non-negative usage;
 - power-factor range;
@@ -145,56 +144,54 @@ The latest validation summary reports the following checks as passed:
 - anomaly-rate threshold;
 - feature-count expectation.
 
-The current test summary is **52 passed**.
-
-The leakage audit confirms that lag and rolling features use past information
-only, weather merging does not use future back-fill, and proxy labels are kept as
-targets/annotations rather than ordinary predictive features.
+Kết quả test hiện tại là **52 passed**. Leakage audit xác nhận lag/rolling
+features chỉ dùng thông tin quá khứ, weather merge không dùng future back-fill,
+và proxy labels được giữ như target/annotation thay vì feature huấn luyện thông
+thường.
 
 ## 7. Uses
 
-Appropriate uses:
+Các mục đích sử dụng phù hợp:
 
-- short-term industrial load forecasting;
-- educational analysis of preprocessing decisions;
-- feature-ablation studies;
-- offline proxy anomaly benchmarking;
-- comparison between raw, temporal, weather, wavelet, physical, and synthetic
+- `short-term load forecasting`;
+- phân tích quyết định tiền xử lý và `feature engineering`;
+- ablation study theo nhóm đặc trưng;
+- benchmark `proxy anomaly` dạng offline;
+- so sánh tác động của raw, temporal, weather, wavelet, physical và synthetic
   augmentation feature groups.
 
-Uses that require caution:
+Các mục đích cần thận trọng:
 
-- operational safety decisions;
-- legal or contractual decisions about energy consumption;
-- direct SCADA deployment;
-- cross-factory generalization without schema mapping and threshold review.
+- quyết định an toàn vận hành;
+- quyết định pháp lý/hợp đồng liên quan đến tiêu thụ điện;
+- triển khai trực tiếp vào SCADA real-time;
+- tổng quát hóa sang nhà máy khác nếu chưa schema mapping và hiệu chỉnh
+  thresholds.
 
 ## 8. Distribution
 
-At the time of this repository snapshot, the dataset is distributed with the
-project files because the current gold CSV is below GitHub's hard per-file
-limit. If future generated artifacts grow substantially, the preferred
-distribution plan is:
+Ở snapshot hiện tại, dataset vẫn có thể đi kèm repository vì file
+`steel_final.csv` chưa vượt hard limit của GitHub. Nếu artifact tăng kích thước,
+kế hoạch phân phối chuyên nghiệp là:
 
-- GitHub for code, metadata, notebooks, and small reproducibility artifacts;
-- Kaggle Datasets for a public data-science download link;
-- Zenodo for a citable academic snapshot when a DOI is needed;
-- DVC or Git LFS only when versioned large artifacts must remain connected to the
-  Git workflow.
+- GitHub lưu code, metadata, notebooks và artifact nhỏ;
+- Kaggle Datasets cung cấp link tải public cho cộng đồng data science;
+- Zenodo dùng cho snapshot học thuật cần DOI;
+- DVC hoặc Git LFS chỉ dùng khi cần versioning artifact lớn gắn với Git workflow.
 
-Publication steps should be recorded with the final release notes or deployment
-notes submitted with the project deliverables.
+Các bước publish cụ thể nên ghi trong release notes hoặc deployment notes khi
+nộp bài.
 
 ## 9. Maintenance
 
-The DS108 project group maintains this dataset for academic review. Updates
-should be versioned with:
+Nhóm DS108 chịu trách nhiệm duy trì dataset cho mục đích học thuật. Khi cập nhật
+phiên bản cần:
 
-- a clear changelog or release note;
-- updated `CODEBOOK.csv` when columns change;
-- updated feature catalog when feature definitions change;
-- updated labeling methodology when thresholds or label logic change;
-- regenerated pipeline summaries and validation outputs.
+- ghi changelog hoặc release note rõ ràng;
+- cập nhật `CODEBOOK.csv` nếu schema thay đổi;
+- cập nhật feature catalog nếu công thức feature thay đổi;
+- cập nhật labeling methodology nếu threshold hoặc rule thay đổi;
+- regenerate pipeline summaries và validation outputs.
 
-Older dataset versions should remain traceable through Git tags, Kaggle versions,
-or release archives.
+Các phiên bản cũ nên được truy vết bằng Git tags, Kaggle versions hoặc release
+archives.

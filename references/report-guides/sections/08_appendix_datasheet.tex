@@ -2,29 +2,29 @@
 % APPENDIX: DATASHEET (Gebru et al., 2021)
 % =============================================================================
 \newpage
-\appendix
+\appendices
 
 \section{DATASHEET}
 \label{app:datasheet}
 
 Phụ lục này trình bày \textit{Datasheet} cho tập dữ liệu đã xử lý `steel\_final.csv`, tuân theo khuyến nghị của Gebru et al.~\cite{gebru2021datasheets}.
-Data Codebook đầy đủ (định nghĩa 64 cột) được cung cấp dưới dạng file CSV riêng biệt kèm theo repository.
+Data Codebook đầy đủ (định nghĩa 69 cột) được cung cấp dưới dạng file CSV riêng biệt kèm theo repository.
 
 % ---------------------------------------------------------------------------
-\subsection{Thông tin Tổng quan}
+\subsection{Dataset Overview}
 \label{app:dataset-overview}
 
 \begin{table}[htbp]
 \caption{THÔNG TIN TỔNG QUAN DATASET}
 \centering
 \small
-\begin{tabular}{@{}lp{8cm}@{}}
+\begin{tabular}{@{}p{2.5cm}p{5.0cm}@{}}
 \toprule
 Thuộc tính & Giá trị \\
 \midrule
 Tên dataset & DS108-Electrimight (Steel Industry Energy Consumption) \\
 Số mẫu & 35.040 (01/01/2018 -- 31/12/2018, 15 phút/mẫu) \\
-Số cột & 64 (11 gốc + 53 kỹ thuật và nhãn) \\
+Số cột & 69 (11 cột gốc và 58 cột mở rộng gồm feature, label và audit field) \\
 Nguồn gốc & UCI ML Repository (điện năng) + Open-Meteo API (khí tượng) \\
 Địa điểm & Nhà máy thép POSCO Gwangyang, Hàn Quốc \\
 License & UCI License (gốc) + MIT (đặc trưng kỹ thuật) \\
@@ -33,7 +33,7 @@ License & UCI License (gốc) + MIT (đặc trưng kỹ thuật) \\
 \end{table}
 
 % ---------------------------------------------------------------------------
-\subsection{Datasheet — Bảy mục chính}
+\subsection{Datasheet Sections}
 \label{app:datasheet-gebru}
 
 \noindent\textbf{1. Motivation.}
@@ -46,7 +46,7 @@ Không có nguồn tài trợ bên ngoài.
 \noindent\textbf{2. Composition.}
 \textit{What do the instances represent?}
 Mỗi dòng là một mốc đo 15 phút gồm điện năng, khí tượng, đặc trưng kỹ thuật đa miền (thờ gian, tần số, vật lý), và nhãn bất thường.
-Tổng cộng 35.040 mẫu × 64 cột, bao gồm 3 nhãn bất thường nhị phân kèm confidence score.
+Tổng cộng 35.040 mẫu × 69 cột, bao gồm 3 nhãn bất thường nhị phân kèm confidence score.
 Dữ liệu gốc không có missing; các cột lag và DWT có NaN ở đầu chuỗi (hợp lệ về mặt thuật toán).
 \textit{Recommended split:} chia theo thờ gian (80\% đầu huấn luyện, 20\% cuối kiểm tra).
 CO$_2$ có độ phân giải thấp (8 giá trị khác biệt); PF gốc báo cáo dạng \%, đã chuẩn hóa về hệ số.

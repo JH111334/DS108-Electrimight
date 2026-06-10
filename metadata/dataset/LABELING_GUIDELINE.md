@@ -1,95 +1,93 @@
 # Proxy Anomaly Labeling Methodology
 
-This document explains the labeling methodology used in DS108-Electrimight. The
-labels are designed for offline benchmarking and report analysis. They are
-**proxy labels**, not maintenance-confirmed equipment-fault labels.
+Tài liệu này mô tả phương pháp gán nhãn của DS108-Electrimight. Các nhãn được
+thiết kế cho offline benchmarking và report analysis. Chúng là **proxy labels**,
+không phải nhãn lỗi thiết bị đã được maintenance logs hoặc SCADA xác nhận.
 
 ## Scope
 
-The current implementation labels three types of industrial electricity-consumption
-patterns:
+Implementation hiện tại gán ba nhóm pattern trong dữ liệu tiêu thụ điện công
+nghiệp:
 
-- idling or energy-waste behavior;
-- leakage/concept drift in sustained usage;
+- idling hoặc energy-waste behavior;
+- leakage/concept drift trong mức tiêu thụ kéo dài;
 - local overload-risk behavior.
 
-The default dataset is the UCI Steel Industry Energy Consumption dataset. The
-schema contract in `src/schema.py` allows extension to other industrial meter
-datasets when timestamp and active energy/power columns are available. Reactive
-power, power factor, load type, and weather fields improve interpretability but
-must be mapped carefully if the dataset changes.
+Dataset mặc định là UCI Steel Industry Energy Consumption. `src/schema.py` cho
+phép mở rộng sang industrial meter data khác nếu có timestamp và active
+energy/power. Reactive power, power factor, load type và weather fields giúp
+tăng interpretability nhưng cần schema mapping cẩn thận khi đổi dataset.
 
 ## Labeling Principles
 
-The label design follows four principles:
+Thiết kế nhãn theo bốn nguyên tắc:
 
-1. **Explainability:** every positive label must have a readable reason.
-2. **Physical plausibility:** thresholds are tied to electrical behavior,
-   operating context, or robust statistics.
-3. **No target leakage:** label columns are annotations and evaluation targets,
-   not ordinary predictive features.
-4. **Conservative reporting:** proxy labels indicate suspicious patterns, not
-   verified plant failures.
+1. **Explainability:** mỗi positive label phải có lý do đọc được.
+2. **Physical plausibility:** threshold bám vào hành vi điện, operating context
+   hoặc robust statistics.
+3. **No target leakage:** label columns là annotations/evaluation targets, không
+   phải ordinary predictive features.
+4. **Conservative reporting:** proxy labels chỉ biểu thị suspicious patterns,
+   không khẳng định plant failures.
 
-Each label receives a confidence score between 0 and 1. The score records how
-many supporting conditions are present and how strong the evidence is.
+Mỗi label có confidence score trong khoảng 0 đến 1. Score phản ánh số lượng và
+độ mạnh của các điều kiện bằng chứng.
 
 ## Label 1: Idling
 
-Idling represents electricity consumption during low-production or off-hours
-conditions with poor power-factor evidence. In a steel plant, this may correspond
-to equipment remaining energized while producing limited useful output.
+Idling biểu thị tiêu thụ điện trong bối cảnh low-production/off-hours kèm bằng
+chứng power factor kém. Trong nhà máy thép, pattern này có thể tương ứng thiết
+bị vẫn được cấp điện trong khi tạo ít useful output.
 
-Current rule structure:
+Rule structure hiện tại:
 
 | Evidence | Interpretation |
 |---|---|
-| Light-load status or low-load proxy | operating state is compatible with idling |
-| Off-hours or weekend timestamp | production demand is expected to be lower |
-| Usage above median | consumption is still materially present |
-| Effective power factor below 0.50 | severe power-factor degradation evidence |
+| Light-load status hoặc low-load proxy | Operating state tương thích với idling |
+| Off-hours hoặc weekend timestamp | Production demand kỳ vọng thấp hơn |
+| Usage above median | Vẫn có tiêu thụ đáng kể |
+| Effective power factor below 0.50 | Bằng chứng power-factor degradation nghiêm trọng |
 
-The implemented logic requires the relevant conditions to align before assigning
-`anomaly_idling`. The current gold dataset contains **10 idling proxy rows**.
+Logic chỉ gán `anomaly_idling` khi các điều kiện liên quan cùng xuất hiện. Gold
+dataset hiện có **10 idling proxy rows**.
 
 ## Label 2: Leakage / Concept Drift
 
-Leakage or concept drift represents a sustained increase in energy consumption
-relative to an early-period baseline. This label is intended to capture gradual
-degradation patterns such as equipment aging, thermal losses, sensor drift, or
-process changes.
+Leakage/concept drift biểu thị mức tiêu thụ tăng kéo dài so với baseline đầu kỳ.
+Nhãn này dùng để phát hiện pattern suy giảm dần như thiết bị lão hóa, thermal
+loss, sensor drift hoặc thay đổi quy trình.
 
-Current rule structure:
+Rule structure hiện tại:
 
 | Evidence | Interpretation |
 |---|---|
-| rolling mean over 672 observations | one week of 15-minute data |
-| baseline from the early stable period | reference consumption level |
-| increase above 5% | weak signal of drift or leakage-like behavior |
-| larger increases | higher confidence tiers |
+| rolling mean over 672 observations | Một tuần dữ liệu 15 phút |
+| baseline from the early stable period | Mức tiêu thụ tham chiếu |
+| increase above 5% | Tín hiệu yếu của drift/leakage-like behavior |
+| larger increases | Confidence tier cao hơn |
 
-The current gold dataset contains **2,336 leakage/concept-drift proxy rows**.
-This is the dominant proxy anomaly class.
+Gold dataset hiện có **2.336 leakage/concept-drift proxy rows**. Đây là nhóm
+proxy anomaly chiếm tỷ trọng lớn nhất.
 
 ## Label 3: Local Overload
 
-Local overload represents extreme active usage accompanied by reactive-power or
-power-factor stress. The label is meant to identify short periods where the
-electrical load appears unusually demanding.
+Local overload biểu thị active usage cực trị đi kèm reactive-power hoặc
+power-factor stress. Nhãn này đánh dấu các giai đoạn mà electrical load có vẻ
+bất thường cao.
 
-Current rule structure:
+Rule structure hiện tại:
 
 | Evidence | Interpretation |
 |---|---|
-| `Usage_kWh` above the 99.5th percentile | robust extreme-usage evidence |
-| reactive magnitude above a high percentile | electrical stress evidence |
-| effective power factor below 0.70 | degraded power quality evidence |
+| `Usage_kWh` above the 99.5th percentile | Robust extreme-usage evidence |
+| reactive magnitude above high percentile | Electrical stress evidence |
+| effective power factor below 0.70 | Degraded power quality evidence |
 
-The current gold dataset contains **48 overload proxy rows**.
+Gold dataset hiện có **48 overload proxy rows**.
 
 ## Aggregate Label
 
-`anomaly_any` is the union of all three proxy labels. Current distribution:
+`anomaly_any` là union của ba proxy labels. Phân bố hiện tại:
 
 | Metric | Value |
 |---|---:|
@@ -97,26 +95,26 @@ The current gold dataset contains **48 overload proxy rows**.
 | `anomaly_any=True` | 2,388 |
 | Rate | 6.815% |
 
-This rate is suitable for imbalanced-learning experiments, but it should be
-presented as a proxy-label rate rather than a verified fault rate.
+Tỷ lệ này phù hợp cho imbalanced-learning experiments, nhưng cần trình bày là
+proxy-label rate, không phải verified fault rate.
 
 ## Confidence Scores
 
-The confidence scores are deterministic and auditable:
+Confidence scores là deterministic và auditable:
 
-- `anomaly_idling_score` combines load status, off-hours context, usage level,
-  and power-factor evidence;
-- `anomaly_leakage_score` increases with the percentage rise above baseline;
-- `anomaly_overload_score` combines extreme usage, reactive stress, and
-  low-power-factor evidence;
-- `anomaly_max_score` records the strongest available proxy evidence.
+- `anomaly_idling_score` kết hợp load status, off-hours context, usage level và
+  power-factor evidence;
+- `anomaly_leakage_score` tăng theo phần trăm vượt baseline;
+- `anomaly_overload_score` kết hợp extreme usage, reactive stress và low power
+  factor;
+- `anomaly_max_score` lưu mức proxy evidence mạnh nhất.
 
-The explanation column selects the most relevant label family and stores a short
-human-readable reason for the assigned proxy.
+`anomaly_explanation` chọn label family nổi bật nhất và tạo lý do ngắn gọn cho
+người đọc.
 
 ## Validation
 
-Label changes should be accompanied by:
+Khi thay đổi label logic, cần chạy:
 
 ```powershell
 python -m pytest tests/test_anomaly_labels.py
@@ -124,16 +122,16 @@ python -m src.data_assertions
 python -m src.leakage_audit
 ```
 
-The latest project validation reports **52 pytest tests passed** and all dataset
-assertions passed.
+Validation gần nhất ghi nhận **52 pytest tests passed** và toàn bộ dataset
+assertions PASS.
 
 ## Reporting Guidance
 
-Use the following language in reports:
+Cách diễn đạt nên dùng trong báo cáo:
 
-> The anomaly columns are physics-informed proxy labels. They provide an
-> explainable benchmark for offline evaluation, but they are not ground-truth
-> SCADA fault records.
+> Các cột anomaly là physics-informed proxy labels. Chúng tạo benchmark có thể
+> giải thích cho offline evaluation, nhưng không phải ground-truth SCADA fault
+> records.
 
-Avoid stating that the project has detected real equipment failures unless
-maintenance logs or expert inspections are later added.
+Không nên viết rằng project đã phát hiện lỗi thiết bị thật nếu chưa có
+maintenance logs hoặc xác nhận chuyên gia.

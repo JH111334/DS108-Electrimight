@@ -1,34 +1,35 @@
-\section{CÁC NGHIÊN CỨU LIÊN QUAN}
+\section{RELATED WORK}
 \label{sec:related}
 % =============================================================================
 
-\subsection{Dự báo Tiêu thụ Điện năng Công nghiệp}
+\subsection{Industrial Load Forecasting}
 
 Dự báo tải công nghiệp đã được nghiên cứu rộng rãi sử dụng các phương pháp thống kê và học máy. Các mô hình tích hợp trung bình di động tự hồi quy (ARIMA) cung cấp các baseline có thể diễn giải nhưng không nắm bắt được động lực phi tuyến~\cite{hippert2001}. Gần đây hơn, các kiến trúc học sâu như mạng Bộ nhớ Ngắn hạn Dài (LSTM) đã chứng minh độ chính xác vượt trội trong việc mô hình hóa các phụ thuộc thời gian~\cite{bouktif2020}. Tuy nhiên, các nghiên cứu này chủ yếu dựa vào dữ liệu tổng hợp cấp hệ thống, trong khi các tải công nghiệp người dùng cuối---đặc biệt trong sản xuất thép---thể hiện các biến động đột ngột do lập lịch lò và vận hành máy cán~\cite{khuntia2016}.
 
-\subsection{Biến Khí tượng Ngoại sinh cho Dự báo Tải}
+\subsection{Exogenous Weather Variables for Load Forecasting}
 
 Ngoài lịch sử tiêu thụ và các đặc trưng lịch, nhiều mô hình dự báo tải ngắn hạn xem điều kiện khí tượng như biến ngoại sinh để giải thích biến động nhu cầu điện. Amjady và Keynia~\cite{amjady2011} mô tả STLF như một ánh xạ phi tuyến phụ thuộc đồng thời vào giá trị tải quá khứ và các biến ngoại sinh như điều kiện thời tiết. Sobhani et al.~\cite{sobhani2019weather} chỉ ra rằng thời tiết là một yếu tố quan trọng trong dự báo phụ tải, trong đó nhiệt độ được dùng phổ biến, còn độ ẩm tương đối và tốc độ gió cũng có thể đóng góp thông tin. Đối với tải công nghiệp, Gekeler et al.~\cite{gekeler2025weather} cho thấy lợi ích của thời tiết có thể nhỏ hơn so với tải dân dụng hoặc tải lưới tổng hợp, vì lịch sản xuất và trạng thái vận hành thường chi phối mạnh hơn. Do đó, trong nghiên cứu này, dữ liệu khí tượng từ Open-Meteo~\cite{openmeteo2026} được sử dụng như một lớp \textit{contextual enrichment}: bổ sung ngữ cảnh môi trường cho mô hình hạ nguồn, nhưng không giả định rằng thời tiết là nguyên nhân chính của mọi biến động tiêu thụ điện.
 
-\subsection{Condition Monitoring và Khoảng trống Dữ liệu Ít Cảm biến}
+\subsection{Condition Monitoring and Low-Sensor Data Gap}
 
 Các giải pháp bảo vệ điện và condition monitoring hiện đại có thể phát hiện quá tải, nhiệt bất thường, phóng điện cục bộ, hoặc suy giảm thiết bị bằng cảm biến chuyên dụng và thuật toán học máy. Ví dụ, Hoffmann et al.~\cite{hoffmann2020switchgear} tổng quan hệ thống giám sát switchgear trung áp dựa trên cảm biến nhiệt, cơ khí, và partial discharge kết hợp machine learning; chính nghiên cứu này cũng nhấn mạnh các thách thức về lựa chọn cảm biến, thiếu dữ liệu đo dài hạn, retrofit brownfield, và mô hình triển khai kinh tế. Ở hướng ít xâm lấn hơn, NILM tách tín hiệu tiêu thụ tổng thành hành vi thiết bị từ một điểm đo duy nhất và đã có toolkit benchmark tái lập~\cite{batra2014nilmtk}. Rashid et al.~\cite{rashid2019nilm} cho thấy phát hiện hành vi bất thường từ tín hiệu không xâm lấn là một hướng nghiên cứu có thật, nhưng chất lượng nhãn và fidelity của tín hiệu vẫn là rào cản.
 
 Vì vậy, khoảng trống của nghiên cứu này nằm giữa hai cực: một bên là hệ thống bảo vệ/SCADA/condition monitoring có độ tin cậy cao nhưng phụ thuộc dữ liệu nội bộ và cảm biến tài sản; bên kia là dữ liệu công tơ công khai dễ tiếp cận nhưng nghèo ngữ cảnh và không có nhãn lỗi thật. Electrimight không claim thay thế relay bảo vệ hoặc chẩn đoán SCADA thời gian thực. Đóng góp chính là xây dựng một benchmark dữ liệu có thể tái lập cho phân tích offline: làm giàu dữ liệu công tơ 15 phút bằng thời tiết, thời gian, wavelet, đặc trưng vật lý, và weak/proxy labels để nghiên cứu forecasting, contextual enrichment, và sàng lọc rủi ro ứng viên khi chưa có log bảo trì xác nhận.
 
-\subsection{Biến đổi Wavelet trong Phân tích Chuỗi thời gian}
+\subsection{Wavelet Transform for Time-Series Analysis}
 
 Phân tích miền tần số bổ sung cho các phương pháp miền thời gian bằng cách tiết lộ các hành vi thoáng qua vô hình đối với thống kê trượt. Biến đổi Fourier Nhanh (FFT) phân rã tín hiệu thành các thành phần tần số nhưng hy sinh sự định vị thời gian. Ngược lại, Biến đổi Wavelet rời rạc (DWT) sử dụng các wavelet mẹ được chia tỷ lệ và dịch chuyển để nắm bắt cả thông tin tần số và thời gian, làm cho nó đặc biệt phù hợp cho các tín hiệu tải công nghiệp không dừng~\cite{mallat1989}. Zhang et al.~\cite{zhang2024} đã chứng minh rằng một mô hình lai DWT-LSTM đạt MAPE thấp tới 0,59\% cho dự báo tải ngắn hạn.
 
-\subsection{GAN và Tăng cường Dữ liệu Tổng hợp}
+\subsection{GAN-based Synthetic Data Augmentation}
 
 Mất cân bằng lớp tạo ra một thách thức dai dẳng trong phát hiện bất thường, nơi các sự kiện bất thường chiếm chưa đến 1\% các quan sát~\cite{chandola2009}. Các Mạng đối kháng Sinh (GAN), được giới thiệu bởi Goodfellow et al.~\cite{goodfellow2014}, đã nổi lên như một paradigm mạnh mẽ để tạo dữ liệu tổng hợp. Đối với các ứng dụng chuỗi thời gian, Yoon et al.~\cite{yoon2019} đã đề xuất TimeGAN, kết hợp huấn luyện đối kháng với mô hình hóa chuỗi có giám sát để bảo toàn động lực thời gian.
 
-\begin{table}[htbp]
+\begin{table*}[htbp]
 \caption{SO SÁNH CÁC NGHIÊN CỨU LIÊN QUAN}
 \label{tab:related}
 \centering
-\begin{tabular}{@{}ccccccc@{}}
+\small
+\begin{tabular}{@{}p{2.2cm}p{2.0cm}p{1.0cm}p{1.1cm}p{1.5cm}p{1.0cm}p{2.2cm}@{}}
 \toprule
 Tài liệu & Dự báo & DWT & Vật lý & Bất thường & GAN & Miền \\
 \midrule
@@ -40,7 +41,7 @@ Tài liệu & Dự báo & DWT & Vật lý & Bất thường & GAN & Miền \\
 Ours & Có & Có & Có & Có & Có & Thép \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 
 % =============================================================================

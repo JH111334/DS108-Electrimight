@@ -1,7 +1,10 @@
 # DS108-Electrimight Gold Feature Catalog
 
-This catalog summarizes the feature groups in `data/gold/steel_final.csv`. The
-complete field-level inventory is maintained in `metadata/dataset/CODEBOOK.csv`.
+Catalog này tóm tắt các nhóm đặc trưng trong `data/gold/steel_final.csv`. Bảng
+định nghĩa cấp cột đầy đủ nằm trong `metadata/dataset/CODEBOOK.csv`. Heading và
+tên nhóm giữ English để thống nhất với `Table of Contents`/schema, còn phần diễn
+giải dùng tiếng Việt có dấu, giữ các thuật ngữ kỹ thuật như `time-domain`,
+`DWT`, `physics-informed`, `proxy labels`, `forecasting` và `ablation`.
 
 ## Dataset Overview
 
@@ -15,44 +18,42 @@ complete field-level inventory is maintained in `metadata/dataset/CODEBOOK.csv`.
 | Primary target for forecasting | `Usage_kWh(t+1h)` |
 | Proxy anomaly target | `anomaly_any` |
 
-The feature design is intentionally organized by evidence source. This makes the
-ablation results interpretable: the project can compare raw context, temporal
-history, weather context, wavelet features, physical features, and GAN-augmented
-minority-class examples.
+Thiết kế đặc trưng được tổ chức theo nguồn bằng chứng. Cách này giúp phần
+`ablation` dễ diễn giải: project có thể so sánh raw context, temporal history,
+weather context, wavelet features, physical features và GAN-augmented minority
+samples.
 
 ## Feature Groups
 
 | Group | Columns | Purpose |
 |---|---:|---|
-| Raw electrical and calendar variables | 11 | preserve source measurements and operating context |
-| Weather variables | 4 | add exogenous environmental context |
-| Weather-derived variables | 7 | summarize weather dynamics and interactions |
-| Time-domain variables | 15 | capture lagged demand and rolling behavior |
-| DWT wavelet variables | 16 | capture transient frequency-domain behavior |
-| Physics-informed variables | 7 | represent power-triangle relationships |
-| Proxy anomaly variables | 9 | provide auditable weak labels and explanations |
+| Raw electrical and calendar variables | 11 | Giữ tín hiệu đo gốc và ngữ cảnh vận hành |
+| Weather variables | 4 | Bổ sung ngữ cảnh ngoại sinh |
+| Weather-derived variables | 7 | Tóm tắt động học thời tiết và interaction |
+| Time-domain variables | 15 | Nắm bắt quán tính tải và chu kỳ thời gian |
+| DWT wavelet variables | 16 | Nắm bắt dao động/transient miền tần số |
+| Physics-informed variables | 7 | Biểu diễn quan hệ tam giác công suất |
+| Proxy anomaly variables | 9 | Cung cấp weak labels và explanation có thể audit |
 | **Total** | **69** |  |
 
 ## 1. Raw Electrical and Calendar Variables
 
-The first group is loaded from the UCI steel dataset and cleaned in the bronze to
-silver stage. It includes timestamp, active usage, lagging/leading reactive
+Nhóm đầu tiên được load từ UCI steel dataset và làm sạch trong bước
+Bronze-to-Silver. Nhóm này gồm timestamp, active usage, lagging/leading reactive
 power, CO2, power factor, seconds from midnight, weekday/weekend status, weekday
-name, and load type.
+name và load type.
 
-Important preprocessing decisions:
+Quyết định xử lý quan trọng:
 
-- `date` is parsed with `dayfirst=True`;
-- power-factor columns are converted from percentage scale to `[0, 1]`;
-- valid zero reactive-power values are preserved because they reflect operating
-  state, not necessarily missingness;
-- the raw source layer remains read-only.
+- `date` được parse với `dayfirst=True`;
+- power-factor columns được chuyển từ thang phần trăm về `[0, 1]`;
+- zero reactive-power hợp lệ được giữ lại vì phản ánh trạng thái vận hành;
+- source layer ở `data/bronze/` được xem là read-only.
 
 ## 2. Weather Variables
 
-Weather data comes from Open-Meteo for Gwangyang coordinates. The original
-weather frequency is hourly; the pipeline resamples it to the steel dataset's
-15-minute grid before merging.
+Weather data đến từ Open-Meteo tại tọa độ Gwangyang. Tần suất gốc là hourly,
+pipeline resample về lưới 15 phút trước khi merge.
 
 Variables:
 
@@ -61,85 +62,85 @@ Variables:
 - `relative_humidity_2m`
 - `windspeed_10m`
 
-Weather is treated as exogenous context. It is not a direct explanation for
-equipment faults, but it helps contextualize industrial load variation.
+Weather được xem là contextual enrichment. Nó không phải bằng chứng nguyên nhân
+trực tiếp của lỗi thiết bị, nhưng giúp đặt biến động tải trong bối cảnh môi
+trường.
 
 ## 3. Weather-Derived Variables
 
-The weather-derived group adds interpretable transformations:
+Nhóm weather-derived gồm:
 
 - rolling 24-hour temperature;
 - 24-hour temperature difference;
 - heat index;
-- extreme-hot and extreme-cold flags;
+- extreme-hot và extreme-cold flags;
 - humidity-temperature interaction;
 - rolling 6-hour wind speed.
 
-These features support contextual enrichment in downstream evaluation. The
-ablation results show that adding weather improves proxy anomaly classification
-under the full-track setting.
+Nhóm này hỗ trợ proxy anomaly analysis. Kết quả ablation cho thấy weather context
+cải thiện phân loại proxy anomaly trong full-track setting.
 
 ## 4. Time-Domain Variables
 
-Time-domain features are created from `Usage_kWh`:
+Time-domain features được tạo từ `Usage_kWh`:
 
-- lags at 15 minutes, 30 minutes, 1 hour, and 24 hours;
-- rolling mean, standard deviation, and skewness over 6-hour, 12-hour, and
-  24-hour windows;
-- sine/cosine encoding of seconds from midnight.
+- lag 15 phút, 30 phút, 1 giờ và 24 giờ;
+- rolling mean, standard deviation và skewness trên cửa sổ 6 giờ, 12 giờ và
+  24 giờ;
+- sine/cosine encoding của seconds from midnight.
 
-These features are causal: they use past and current information only. They are
-the strongest group for the 1-hour-ahead forecasting task, where the best RMSE
-comes from the RAW + TIME configuration.
+Các feature này là causal vì chỉ dùng thông tin hiện tại/quá khứ. Đây là nhóm
+đóng góp mạnh nhất cho tác vụ 1-hour-ahead forecasting, nơi cấu hình RAW + TIME
+đạt RMSE tốt nhất.
 
 ## 5. Frequency-Domain DWT Variables
 
-The pipeline computes rolling discrete wavelet transform features using:
+Pipeline tính rolling DWT với cấu hình:
 
 - wavelet: Daubechies-4 (`db4`);
 - decomposition level: 3;
-- rolling window: 64 observations, equivalent to 16 hours.
+- rolling window: 64 observations, tương đương 16 giờ.
 
-For each coefficient band (`cA`, `cD3`, `cD2`, `cD1`), the pipeline extracts:
+Với mỗi coefficient band (`cA`, `cD3`, `cD2`, `cD1`), pipeline trích xuất:
 
 - mean;
 - standard deviation;
 - energy;
 - maximum absolute value.
 
-The DWT group is intended to capture transients and load oscillations that are
-less visible in smoothed rolling statistics.
+Nhóm DWT giúp nắm bắt transient và load oscillations khó thấy bằng rolling
+statistics thông thường.
 
 ## 6. Physics-Informed Variables
 
-The physics-informed group derives electrical quantities from active power,
-reactive power, and power factor:
+Nhóm physics-informed tạo các đại lượng điện từ active power, reactive power và
+power factor:
 
 - apparent power;
 - net reactive power;
 - total reactive magnitude;
 - apparent power from net reactive power;
-- lagging and leading phase-angle features.
+- lagging và leading phase-angle features.
 
-These variables help explain electrical stress and power-factor degradation in a
-form that is easier to audit than a purely black-box model input.
+Các feature này làm cho electrical stress và power-factor degradation dễ audit
+hơn so với chỉ dùng black-box input.
 
 ## 7. Proxy Anomaly Variables
 
-The final group records proxy anomaly labels:
+Nhóm cuối cùng ghi lại proxy anomaly labels:
 
 - `anomaly_idling`
 - `anomaly_leakage`
 - `anomaly_overload`
 - `anomaly_any`
-- confidence scores for each label type;
+- confidence scores cho từng label type;
 - `anomaly_max_score`;
 - `anomaly_explanation`.
 
-These labels are rule-based and explainable. They should be used as benchmark
-annotations, not as confirmed operational ground truth.
+Các nhãn này dựa trên rule và có explanation. Chúng nên được dùng như benchmark
+annotations, không phải confirmed operational ground truth.
 
-Current label distribution:
+Phân bố nhãn:
 
 | Label | Count | Rate |
 |---|---:|---:|
@@ -150,19 +151,19 @@ Current label distribution:
 
 ## Pipeline Order
 
-1. `src/bronze/data_loader.py` loads and cleans the original steel data.
-2. `src/bronze/weather_loader.py` loads, resamples, and merges weather data.
-3. `src/silver/time_features.py` creates lag, rolling, and cyclic features.
-4. `src/silver/wavelet_features.py` creates DWT wavelet features.
-5. `src/silver/physical_features.py` creates electrical-domain features.
-6. `src/silver/anomaly_labels.py` creates proxy anomaly labels.
-7. `src/gold/pipeline.py` writes the final gold dataset.
+1. `src/bronze/data_loader.py` load và clean dữ liệu steel gốc.
+2. `src/bronze/weather_loader.py` load, resample và merge weather data.
+3. `src/silver/time_features.py` tạo lag, rolling và cyclic features.
+4. `src/silver/wavelet_features.py` tạo DWT wavelet features.
+5. `src/silver/physical_features.py` tạo electrical-domain features.
+6. `src/silver/anomaly_labels.py` tạo proxy anomaly labels.
+7. `src/gold/pipeline.py` ghi gold dataset.
 
 ## Interpretation for Reporting
 
-The feature catalog supports the main project claim: Electrimight is a
-feature-centric preprocessing pipeline. The strongest forecasting improvement
-comes from temporal history, while the strongest proxy anomaly classification
-result comes from adding weather context under the full-track ablation. The
-project should therefore be described as an auditable dataset-building and
-preprocessing study, not as a production fault-detection system.
+Feature catalog củng cố claim chính của project: Electrimight là một pipeline
+tiền xử lý và xây dựng dataset theo hướng feature-centric. Temporal history là
+nhóm mạnh nhất cho forecasting, còn weather context giúp proxy anomaly
+classification trong full-track ablation. Vì vậy, báo cáo nên mô tả project như
+một nghiên cứu dataset-building có thể audit, không phải production
+fault-detection system.

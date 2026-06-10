@@ -1,7 +1,7 @@
-\section{Kết quả Kiểm thử và Audit}
+\section{TESTING AND AUDIT RESULTS}
 \label{app:tests}
 
-\subsection{Kết quả Unit Tests}
+\subsection{Unit Test Results}
 
 Toàn bộ pipeline được bao phủ bởi 50 unit tests sử dụng pytest.
 Các module được kiểm thử bao gồm \texttt{data\_loader}, \texttt{data\_assertions}, \texttt{anomaly\_labels}, và workflow IEEE end-to-end.
@@ -26,7 +26,7 @@ Tổng & 50 & 100\% \\
 \end{tabular}
 \end{table}
 
-\subsection{Module Missingness Audit}
+\subsection{Missingness Audit Module}
 
 Mặc dù tập dữ liệu hiện tại không chứa giá trị thiếu,
 module \texttt{missingness\_analysis.py} được triển khai như một cơ chế audit phòng ngừa.
