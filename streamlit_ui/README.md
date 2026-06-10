@@ -76,6 +76,47 @@ Open:
 http://localhost:8501
 ```
 
+## Docker Compose
+
+The Streamlit service is available through Compose:
+
+```powershell
+docker compose up streamlit
+```
+
+Open:
+
+```text
+http://localhost:8505
+```
+
+The optional Jupyter Lab profile can be started with:
+
+```powershell
+docker compose --profile full up
+```
+
+Open:
+
+```text
+http://localhost:8888
+```
+
+The Jupyter service is configured without a token for local project review only.
+
+## Runtime Modes
+
+The Docker entrypoint supports:
+
+| Mode | Command |
+|---|---|
+| Streamlit | `docker run --rm -p 8501:8501 ds108-electrimight streamlit` |
+| Gold pipeline | `docker run --rm ds108-electrimight pipeline` |
+| Data assertions | `docker run --rm ds108-electrimight assertions` |
+| Leakage audit | `docker run --rm ds108-electrimight leakage` |
+| Missingness analysis | `docker run --rm ds108-electrimight missingness` |
+| Tests | `docker run --rm ds108-electrimight test` |
+
 For formal submission, publish the image to Docker Hub or GitHub Container
 Registry and provide both the image URL and the run command.
 

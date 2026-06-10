@@ -48,6 +48,7 @@ DS108-Electrimight/
 |   `-- gold/                # End-to-end pipeline, figures, GAN, ablation
 |-- streamlit_ui/            # Streamlit dashboard for project demonstration
 |-- tests/                   # Pytest coverage for schema, labels, assertions
+|-- docker-compose.yml       # Compose profiles for Streamlit and Jupyter
 `-- Dockerfile               # Containerized Streamlit app
 ```
 
@@ -162,6 +163,22 @@ docker run --rm -p 8501:8501 ds108-electrimight
 ```
 
 Then open `http://localhost:8501`.
+
+Run with Docker Compose:
+
+```powershell
+docker compose up streamlit
+```
+
+Then open `http://localhost:8505`.
+
+The optional Jupyter profile is available with:
+
+```powershell
+docker compose --profile full up
+```
+
+Jupyter Lab is exposed at `http://localhost:8888`.
 
 The Streamlit and Docker commands above provide the reproducible app entry
 points for local review and deployment preparation.

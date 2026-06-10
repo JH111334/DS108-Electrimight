@@ -1,8 +1,10 @@
 .git
 .pytest_cache/
+.ruff_cache/
 __pycache__/
 *.pyc
 .venv/
+.venv_stable/
 venv/
 notebooks/.ipynb_checkpoints/
 artifacts/
