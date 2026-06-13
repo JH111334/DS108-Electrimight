@@ -185,18 +185,6 @@ Jupyter Lab được expose tại `http://localhost:8888`.
 Các lệnh Streamlit và Docker ở trên là entry point có thể tái lập để giảng viên
 review app local hoặc kiểm tra deployment preparation.
 
-## Chính sách Large Dataset
-
-Các CSV hiện đang được track vẫn nằm trong giới hạn thông thường của GitHub. Tuy
-nhiên, các dataset hoặc model artifact phát sinh trong tương lai không nên commit
-trực tiếp nếu chúng tiệm cận ngưỡng large-file. Workflow chuyên nghiệp là:
-
-- giữ code, metadata, notebook và sample file nhỏ trên GitHub;
-- công bố full dataset trên Kaggle hoặc Zenodo khi dataset cần được chia sẻ rộng;
-- dùng DVC hoặc Git LFS khi large artifacts cần gắn với workflow versioning của
-  repository;
-- ghi rõ mọi external dataset URL trong `metadata/dataset/DATASHEET.md`.
-
 ## License
 
 Source code được phân phối theo license của repository. Bộ dữ liệu thép gốc vẫn
